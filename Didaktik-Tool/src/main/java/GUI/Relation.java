@@ -6,6 +6,8 @@ import javafx.scene.shape.Shape;
 import javafx.scene.shape.Polygon;
 import javafx.scene.control.Label;
 
+
+//Klasse zum Speicher von Einzelenne Relationen um dauras TS zu erstellen und die eingezeichenten Kreise zu koordinieren
 public class Relation {
 
     private final Circle firstCircle;
