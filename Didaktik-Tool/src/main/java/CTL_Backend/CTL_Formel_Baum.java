@@ -2,12 +2,20 @@ package CTL_Backend;
 
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import javafx.geometry.Bounds;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Parent;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextArea;
 import javafx.scene.text.Text;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Line;
@@ -60,6 +68,13 @@ public class CTL_Formel_Baum {
         nodeBox.setLayoutY(y);
         pane.getChildren().add(nodeBox);
 
+        
+        // Wenn das Element das Interface Detail_Lösung implementiert
+        if (node instanceof detail_lösung) {
+            addToggleDetailSolution(nodeBox,  (detail_lösung)node,pane);
+        }
+
+
         // Wenn der Knoten eine innere Menge hat (Ast), zeichne die innere Menge rekursiv
         if (node instanceof Ast) {
             erfüllende_Mengen innerNode = ((Ast) node).getInnere_Menge();
@@ -87,6 +102,72 @@ public class CTL_Formel_Baum {
             return;
         }
     }
+    
+ // Neue private Methode zum Hinzufügen des Pluszeichens und der Textbox
+    private void addToggleDetailSolution(StackPane nodeBox, detail_lösung menge, Pane pane) {
+        
+    	// Toggle-Button erstellen und gestalten
+        Button toggleButton = new Button("+");
+        toggleButton.setStyle(
+            "-fx-background-color: #ffffff; " +
+            "-fx-border-radius: 10px; " +
+            "-fx-background-radius: 5px; " +
+            "-fx-font-size: 8px; " +
+            "-fx-text-fill: black; " +
+            "-fx-min-width: 5px; " +
+            "-fx-min-height: 5px;"
+        );
+
+        // Label für die Detail-Lösung
+        Label textBox = new Label(menge.get_schritt_weise_lösung());
+        textBox.setWrapText(true); 
+        textBox.setStyle(
+            "-fx-background-color: #ffffff; " +
+            "-fx-padding: 10px; " +
+            "-fx-font-size: 10px;"
+        );
+           
+
+        // ScrollPane erstellen
+        ScrollPane scrollPane = new ScrollPane(textBox);
+        scrollPane.setPrefWidth(300); 
+        scrollPane.setFitToWidth(true);
+        scrollPane.setVisible(false); 
+        
+     // Positioniere den Button und die ScrollPane relativ zur nodeBox
+        toggleButton.setLayoutX(nodeBox.getLayoutX() +30); 
+        toggleButton.setLayoutY(nodeBox.getLayoutY() - 25);
+
+        scrollPane.setLayoutX(nodeBox.getLayoutX() +35); 
+        scrollPane.setLayoutY(nodeBox.getLayoutY() -25);
+
+
+
+        // Toggle-Action für den Button
+        toggleButton.setOnAction(event -> {
+            if (toggleButton.getText().equals("+")) {
+                toggleButton.setText("-");
+                scrollPane.setVisible(true); // ScrollPane anzeigen
+                scrollPane.requestLayout(); // Layout anpassen
+            } else {
+                toggleButton.setText("+");
+                scrollPane.setVisible(false); // ScrollPane verstecken
+            }
+        });
+        
+        // Füge den Toggle-Button und die ScrollPane an der ParentPane hinzu
+        Pane container = new Pane();  // Statt BorderPane
+        container.setStyle(
+            "-fx-background-color: lightgrey;");
+        container.getChildren().addAll(scrollPane, toggleButton);
+        pane.getChildren().add(container);
+        // Clipping für das Pane deaktivieren
+        pane.setClip(null);
+    }
+
+
+
+
 
     // Erstellt ein grafisches Element für einen Knoten
     private NodeBox createNodeBox(String nodeName, erfüllende_Mengen ctl_lösungsmenge) {

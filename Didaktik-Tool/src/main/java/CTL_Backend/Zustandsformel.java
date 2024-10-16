@@ -6,11 +6,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.HashMap;
 import java.util.Set;
-import CTL_Backend.erfüllende_Mengen;
-import CTL_Backend.Zustand;
 
 
 public class Zustandsformel {
@@ -20,6 +17,7 @@ public class Zustandsformel {
 	private erfüllende_Mengen Start_der_rekursiven_Definition;
 	private Set<Zustand> lösungsmenge = new HashSet<>();
 	private Map<String, String> gruendeFuerNichteinlesbareSymbole;
+	private String fehlerbeschreibung = "";
 	private String last_checked_Formular = "";
 	
 	//Counter zum überwachen ob die eingegebne Formel gültig ist
@@ -618,7 +616,8 @@ public class Zustandsformel {
 	    
 	    // Formelende nur wenn Zustandsformel
 	    if (!(this.ist_Zustandsformel(this.formel_string, 0))) {
-	        this.gruendeFuerNichteinlesbareSymbole.put("Formelende", FORMELENDE_NUR_WENN_ZUSTANDSFORMEL + " "+ last_checked_Formular+ "\n\n");
+	        this.gruendeFuerNichteinlesbareSymbole.put("Formelende", FORMELENDE_NUR_WENN_ZUSTANDSFORMEL + " "+ this.fehlerbeschreibung+ "\n\n");
+	        this.fehlerbeschreibung = "";
 	    }
 	    
 	 
@@ -688,118 +687,110 @@ public class Zustandsformel {
 	 	
 	 //Wird true wenn bisher einglesener String eine korrekte Zustandsformel ist, Bedingung für das Einlesen bestimmter Zeichen und das Formelende
 	 public boolean ist_Zustandsformel(String zu_prüfende_Formel, int tiefe) {
+		 
+		 boolean debug = false;
 		    // Ausgaben zur Nachverfolgung des aktuellen Aufrufs
-		    //printAufruf(tiefe, "Prüfe Formel: " + zu_prüfende_Formel);
-		    
+		    if (debug) printAufruf(tiefe, "Prüfe Formel: " + zu_prüfende_Formel);
+
 		    // Entferne führende und nachfolgende Leerzeichen
 		    zu_prüfende_Formel = zu_prüfende_Formel.trim();
-		    
-		    // 0. Wenn die Formel "1" oder "0" ist, gib true zurück (Basisfall)
+
+		    // 0. Basisfall: Wenn die Formel "1" oder "0" ist, gib true zurück
 		    if (zu_prüfende_Formel.equals("1") || zu_prüfende_Formel.equals("0")) {
-		        //printAufruf(tiefe, "Erfolgreich: Basisfall erreicht mit " + zu_prüfende_Formel);
+		        if (debug) printAufruf(tiefe, "Erfolgreich: Basisfall erreicht mit " + zu_prüfende_Formel);
 		        return true;
 		    }
-		    
+
 		    // 1. Wenn "∃" oder "∀" gelesen wird
 		    if (zu_prüfende_Formel.startsWith("∃") || zu_prüfende_Formel.startsWith("∀")) {
-		        //printAufruf(tiefe, "Gefunden: Quantor " + zu_prüfende_Formel.charAt(0));
+		        if (debug) printAufruf(tiefe, "Gefunden: Quantor " + zu_prüfende_Formel.charAt(0));
 		        String rest = zu_prüfende_Formel.substring(1).trim();
-		        
-		        // Wenn danach ein "◇", "○", "□" steht, prüfe den restlichen Teil
+
 		        if (rest.startsWith("◇") || rest.startsWith("○") || rest.startsWith("□")) {
 		            return ist_Zustandsformel(rest.substring(1).trim(), tiefe + 1);
 		        }
-		        
-		        // Suche nach einem "U", außer die Formel ist noch nicht beendet, weil dann ja das nächste was gelesen werden kann ein U ist
+
 		        int indexOfU = rest.indexOf("U");
 		        if (indexOfU != -1) {
-		        	//printAufruf(tiefe, "Hinweis: 'U' gefunden nach Quantor.");
+		            if (debug) printAufruf(tiefe, "Hinweis: 'U' gefunden nach Quantor.");
 		            String leftPart = rest.substring(0, indexOfU).trim();
 		            String rightPart = rest.substring(indexOfU + 1).trim();
 		            return ist_Zustandsformel(leftPart, tiefe + 1) && ist_Zustandsformel(rightPart, tiefe + 1);
 		        }
-		        
-		        // Wenn kein "U" gefunden, ist die Formel ungültig, falls Sie beendet wurde ansonsten True zurück geben weil ja U kommen könnte
-			    if(zu_prüfende_Formel.endsWith("Formelende")) {  
-			    	//printAufruf(tiefe, "Fehler: Kein gültiges 'U' gefunden.");
-			        return false;
-			    }
-			    else return true;
+
+		        if (zu_prüfende_Formel.endsWith("Formelende")) {
+		        	 addFehlerbeschreibung(zu_prüfende_Formel, "Fehler: Kein gültiges 'U' gefunden nach Quantor.");
+		            if (debug) printAufruf(tiefe, "Fehler: Kein gültiges 'U' gefunden.");
+		            return false;
+		        } else return true;
 		    }
-		    
-		    // 2. Wenn "[" oder "〈", suche das passende schließende Symbol
+
+		    // 2. Klammern prüfen: "[" oder "〈"
 		    if (zu_prüfende_Formel.startsWith("[") || zu_prüfende_Formel.startsWith("〈")) {
 		        char opening = zu_prüfende_Formel.charAt(0);
 		        char closing = (opening == '[') ? ']' : '〉';
 		        int closingIndex = findMatchingBracket(zu_prüfende_Formel, opening, closing);
-		        
+
 		        if (closingIndex == -1) {
-		            //printAufruf(tiefe, "Fehler: Kein passendes schließendes Symbol für " + opening);
-		            return false; // Keine passende Klammer gefunden
+		        	 addFehlerbeschreibung(zu_prüfende_Formel, "Fehler: Kein passendes schließende Klammer für " + opening);
+		            if (debug) printAufruf(tiefe, "Fehler: Kein passendes schließendes Symbol für " + opening);
+		            return false;
 		        }
-		        
-		        // Prüfe, ob "{" und "}" vorkommen
+
 		        String inner = zu_prüfende_Formel.substring(1, closingIndex).trim();
 		        if (inner.contains("{") && inner.contains("}")) {
-		            // Prüfe den rechten Teil der Formel
 		            return ist_Zustandsformel(zu_prüfende_Formel.substring(closingIndex + 1).trim(), tiefe + 1);
 		        }
 		        
-		        //printAufruf(tiefe, "Fehler: Keine gültige Formel zwischen Klammern.");
-		        return false; // Ungültig, wenn keine "{" und "}"
+		        addFehlerbeschreibung(zu_prüfende_Formel, "Fehler: Keine gültige Formel zwischen Klammern.");
+		        if (debug) printAufruf(tiefe, "Fehler: Keine gültige Formel zwischen Klammern.");
+		        return false;
 		    }
-		    
-		    // 3. Wenn ¬, rufe die Funktion rekursiv mit dem rechten Teil auf
+
+		    // 3. Negation prüfen: "¬"
 		    if (zu_prüfende_Formel.startsWith("¬")) {
-		        //printAufruf(tiefe, "Gefunden: Negation ¬");
+		        if (debug) printAufruf(tiefe, "Gefunden: Negation ¬");
 		        return ist_Zustandsformel(zu_prüfende_Formel.substring(1).trim(), tiefe + 1);
 		    }
-		    
-		 // 4. Wenn "(", suche ")" aber nur wenn die Formel beendet wurde ein Ausschlusskriterium,
-		 // ansonsten einfach weiterreichen!
-		 if (zu_prüfende_Formel.startsWith("(")) {
-		     int closingIndex = findMatchingBracket(zu_prüfende_Formel, '(', ')');
-		     // Wenn keine schließende Klammer gefunden wurde
-		     if (closingIndex == -1) {
-		         // Prüfe, ob die Formel als "beendet" gekennzeichnet ist (z.B. durch "Formelende")
-		         if (zu_prüfende_Formel.endsWith("Formelende")) {
-		             //printAufruf(tiefe, "Fehler: Keine passende schließende Klammer.");
-		             return false; // Keine passende schließende Klammer
-		         } else {
-		             // Wenn die Formel noch nicht beendet ist, einfach weiterreichen
-		             return ist_Zustandsformel(zu_prüfende_Formel.substring(1).trim(), tiefe + 1);
-		         }
-		     }
-		     // Wenn eine schließende Klammer gefunden wurde, prüfe den Teil zwischen den Klammern
-		     return ist_Zustandsformel(zu_prüfende_Formel.substring(1, closingIndex).trim(), tiefe + 1);
-		 }
-		    
-		    // 5. Wenn "∧" oder "∨", rufe die Funktion zweimal rekursiv auf (für beide Seiten),
+
+		    // 4. Klammern prüfen: "("
+		    if (zu_prüfende_Formel.startsWith("(")) {
+		        int closingIndex = findMatchingBracket(zu_prüfende_Formel, '(', ')');
+		        if (closingIndex == -1) {
+		            if (zu_prüfende_Formel.endsWith("Formelende")) {
+		            	addFehlerbeschreibung(zu_prüfende_Formel, "Fehler: Keine passende schließende Klammer.");
+		                if (debug) printAufruf(tiefe, "Fehler: Keine passende schließende Klammer.");
+		                return false;
+		            } else {
+		                return ist_Zustandsformel(zu_prüfende_Formel.substring(1).trim(), tiefe + 1);
+		            }
+		        }
+		        return ist_Zustandsformel(zu_prüfende_Formel.substring(1, closingIndex).trim(), tiefe + 1);
+		    }
+
+		    // 5. Logische Operatoren prüfen: "∧" und "∨"
 		    int andIndex = zu_prüfende_Formel.indexOf("∧");
 		    int orIndex = zu_prüfende_Formel.indexOf("∨");
-		    
-		  //Workaround: wenn das ∧ oder ∨ in einer Klammer steht muss man die öffnende Klammer vom linken Teil weg nehmen
-		    int offset= 0;
-		    if (!zu_prüfende_Formel.isEmpty()) {
-			    if (zu_prüfende_Formel.charAt(0) == '(') {
-			    	offset= 1;
-			    }
+
+		    int offset = 0;
+		    if (!zu_prüfende_Formel.isEmpty() && zu_prüfende_Formel.charAt(0) == '(') {
+		        offset = 1;
 		    }
 
 		    if (andIndex != -1) {
-		        String leftPart = zu_prüfende_Formel.substring(0+offset, andIndex).trim();
+		        String leftPart = zu_prüfende_Formel.substring(0 + offset, andIndex).trim();
 		        String rightPart = zu_prüfende_Formel.substring(andIndex + 1).trim();
 		        return ist_Zustandsformel(leftPart, tiefe + 1) && ist_Zustandsformel(rightPart, tiefe + 1);
 		    }
-		    
+
 		    if (orIndex != -1) {
 		        String leftPart = zu_prüfende_Formel.substring(0, orIndex).trim();
 		        String rightPart = zu_prüfende_Formel.substring(orIndex + 1).trim();
 		        return ist_Zustandsformel(leftPart, tiefe + 1) && ist_Zustandsformel(rightPart, tiefe + 1);
 		    }
 		    
-		    // Wenn keine der Bedingungen zutrifft, ist die Formel ungültig
-		    //printAufruf(tiefe, "Fehler: Keine passende logische Struktur.");
+		    addFehlerbeschreibung(zu_prüfende_Formel, "Fehler: Keine passende logische Struktur.");
+		    if (debug) printAufruf(tiefe, "Fehler: Keine passende logische Struktur.");
 		    return false;
 		}
 
@@ -941,6 +932,23 @@ public class Zustandsformel {
         }
         return tiefe;
     }
+	
+    // Hilfsfunktion zur Fehlerbeschreibung
+    private void addFehlerbeschreibung(String formel, String fehler) {
+    	
+    	String formel_;
+    	
+    	if(formel=="") {
+    		formel_ = "Eingabe: ......";
+    	} else formel_  = "Eingabe: " + formel;
+    	
+    	fehlerbeschreibung = formel_  + " --> " + fehler + "\n"; // Fehlerbeschreibung erstellen
+    }
+    
+    // Getter für die Fehlerbeschreibung
+    public String getFehlerbeschreibung() {
+        return fehlerbeschreibung;
+    }
     
     // Eine einfache Triple-Klasse, um Index, Term und Tiefe zu speichern
     static class Triple<K, V, T> {
@@ -959,6 +967,18 @@ public class Zustandsformel {
         public T getThird() { return third; }
     }
 }
+
+//Wrapper-Klasse für Rückgabewerte (Ergebnis + fehlerhafter Teil)
+class Prüfungsergebnis {
+ boolean istKorrekt;
+ String fehlerhafterTeil;
+
+ Prüfungsergebnis(boolean korrekt, String teil) {
+     this.istKorrekt = korrekt;
+     this.fehlerhafterTeil = teil;
+ }
+}
+
 	
 
 

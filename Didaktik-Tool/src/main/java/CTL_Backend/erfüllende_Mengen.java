@@ -3,6 +3,7 @@ package CTL_Backend;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public abstract class erfüllende_Mengen {
     
@@ -13,6 +14,23 @@ public abstract class erfüllende_Mengen {
     public String get_symbol() {
         return symbol;
     }
+    
+	protected String print_Lösungsmenge(Set<Zustand> menge) {
+	    if (menge.isEmpty()) {
+	        return "∅"; // Zeichen für die leere Menge
+	    } else {
+	        // Generiere die Einträge des HashSets als kommaseparierte Werte in {}
+	        return "{" + menge.stream()
+	            .map(Zustand::getName)  // Rufe getName() für jeden Zustand auf
+	            .collect(Collectors.joining(", ")) + "}";
+	    }
+	}
+}
+
+//Interface für Funktion der Detail-Ausgabe bei ∃ϕUψ und ∃□ϕ
+
+interface detail_lösung{
+	public String get_schritt_weise_lösung();
 }
 
 //##################Wird nochmal aufgeteilt, entweder eine Lösungsmenge deffiniert sich über keine,1 oder zwei vorhergehende Lösungsmengen
@@ -43,8 +61,14 @@ abstract class Verzweigung extends erfüllende_Mengen {
 }
 
 //damit ist nicht das klassiche Until gemeint sondern ein Ausdruck nahc der Art psi-U-gamma
-class psi_Until_gamma extends Verzweigung{
+class psi_Until_gamma extends Verzweigung implements detail_lösung{
 	
+	String detail_lösung;
+	
+	public String get_schritt_weise_lösung(){
+		//System.out.println(this.detail_lösung);
+		return this.detail_lösung;
+	}
 	
 	
 	public psi_Until_gamma(erfüllende_Mengen linke_seite,erfüllende_Mengen rechte_seite) {
@@ -54,18 +78,24 @@ class psi_Until_gamma extends Verzweigung{
 	}
 	
   public Set<Zustand> berechne(Transitionssystem ts) {
-
+	  
+	  int n =0;
       // 1. Berechne die Lösungen der linken und rechten Seite
       Set<Zustand> lösungsmenge_links = linke_Seite.berechne(ts);
       Set<Zustand> lösungsmenge_rechts = rechte_Seite.berechne(ts);
-      
-     
 
       // 2. Fixpunkt-Iteration, beginnend bei der leeren Menge
       HashSet<Zustand> returnSet = new HashSet<>();
       HashSet<Zustand> last_ReturnSet;
+      
+      //Startpunkt speichern für Detailausgabe
+	    this.detail_lösung = "allgemeine Lösung: " + "Sat(ψ)" +"∪" + "{z ∈ Sat(ϕ)|∃a ∈ A,z' ∈ Z': z ↦ z'} \n";
 
       do {
+    	  
+    	//String anhängen
+    	  n = n +1;
+    	  this.detail_lösung = this.detail_lösung+ "● "+ n+ ". Itterationsschritt: "+"(" + this.print_Lösungsmenge(lösungsmenge_rechts) + ") ∪" + "{z ∈ " + this.print_Lösungsmenge(returnSet) +"|∃a ∈ A,z' ∈ "+ this.print_Lösungsmenge(returnSet)+": z ↦ z'}";
           // Letzte Iteration speichern
           last_ReturnSet = new HashSet<>(returnSet);
 
@@ -93,12 +123,17 @@ class psi_Until_gamma extends Verzweigung{
                   }
               }
           }
+          
+          //an String anfügen
+	      this.detail_lösung = this.detail_lösung + "= " + this.print_Lösungsmenge(neuesReturnSet)+"\n";
+	        
           // Setze das aktuelle ReturnSet auf das neue Ergebnis
           returnSet = neuesReturnSet;
-
+          
       } while (!returnSet.equals(last_ReturnSet));  // Wiederhole, bis sich das ReturnSet nicht mehr ändert
 
       // Gib das finale ReturnSet zurück
+	  this.detail_lösung = this.detail_lösung + "→ Fixpunkt gefunden";
       return returnSet;
   }
 }
@@ -324,7 +359,10 @@ class in_einem_nächsten_zustand_gilt extends Ast{
 
 
 //damit ist die letzte Rekursive Definition aus dem Kurstext gemeint
-class ein_pfad_auf_dem_immer_gilt extends Ast{
+class ein_pfad_auf_dem_immer_gilt extends Ast implements detail_lösung{
+	
+	String detail_lösung;
+	
 	
 	public ein_pfad_auf_dem_immer_gilt(erfüllende_Mengen innere_Menge) {
 		this.innere_Menge = innere_Menge;
@@ -332,19 +370,31 @@ class ein_pfad_auf_dem_immer_gilt extends Ast{
 		
 	}
 	
+	public String get_schritt_weise_lösung(){
+		//System.out.println(this.detail_lösung);
+		return this.detail_lösung;
+	}
+	
 	public Set<Zustand> berechne(Transitionssystem ts) {
-	    // 1. Berechne rekursive Sat(psi#)
+	    int n = 0;
+		// 1. Berechne rekursive Sat(psi#)
 	    Set<Zustand> innere_erfüllende_Menge = innere_Menge.berechne(ts);
 
 	    // 2. Beginne mit Z = Z (alle Zustände)
 	    HashSet<Zustand> returnSet = new HashSet<>(ts.getZustände());
-
+	    
+	    //Startpunkt speichern für Detailausgabe
+	    this.detail_lösung = "allgemeine Lösung: "+"Sat(" + "ϕ" + ") ∩" + "{z ∈ Z'|∃a ∈ A,z' ∈ Z': z ↦ z'} \n";
+	    
 	    // 3. Berechne mit Sat(psi) die Fixpunktiteration, solange bis sich returnSet nicht mehr ändert
 	    HashSet<Zustand> last_ReturnSet;
 	    do {
+	    	//String anhängen
+	    	n = n +1;
+	    	this.detail_lösung = this.detail_lösung+ "● "+ n+ ". Itterationsschritt: "+"(" + this.print_Lösungsmenge(innere_erfüllende_Menge) + ") ∩" + "{z ∈ " + this.print_Lösungsmenge(returnSet) +"|∃a ∈ A,z' ∈ "+ this.print_Lösungsmenge(returnSet)+": z ↦ z'}";
 	        // Letzte Iteration speichern
 	        last_ReturnSet = new HashSet<>(returnSet);
-
+	        
 	        // Neues ReturnSet initialisieren
 	        HashSet<Zustand> neuesReturnSet = new HashSet<>();
 
@@ -373,6 +423,8 @@ class ein_pfad_auf_dem_immer_gilt extends Ast{
 
 	        // 2. Schneide neuesReturnSet mit der inneren_erfüllenden_Menge
 	        neuesReturnSet.retainAll(innere_erfüllende_Menge);
+	        //an String anfügen
+	        this.detail_lösung = this.detail_lösung + "= " + this.print_Lösungsmenge(neuesReturnSet)+"\n";
 
 	        // Setze returnSet auf das Ergebnis der aktuellen Iteration
 	        returnSet = neuesReturnSet;
@@ -380,6 +432,7 @@ class ein_pfad_auf_dem_immer_gilt extends Ast{
 	    } while (!returnSet.equals(last_ReturnSet));  // Wiederhole, solange sich returnSet verändert
 
 	    // Gib das berechnete ReturnSet zurück
+	    this.detail_lösung = this.detail_lösung + "→ Fixpunkt gefunden";
 	    return returnSet;
 	}
 }

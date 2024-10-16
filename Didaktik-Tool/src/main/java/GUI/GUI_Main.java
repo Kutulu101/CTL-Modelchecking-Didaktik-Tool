@@ -7,6 +7,8 @@ import CTL_Backend.Umformung;
 
 import javafx.scene.layout.VBox;
 import javafx.application.Application;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.Group;
@@ -29,7 +31,7 @@ public class GUI_Main extends Application {
 	
     
     //ermöglicht das einzeichenen von Relationen
-	static boolean draw_relations = false;
+	private BooleanProperty draw_relations = new SimpleBooleanProperty(false);
 	
 	//Merker zum Verwalten der Relationseinzeichnung, durch anklicken
     private Circle firstCircle = null;
@@ -46,8 +48,8 @@ public class GUI_Main extends Application {
     HBox FormelBox = new HBox(10);
     
     //erstelle einen Circle_Builder und Arrow Builder, diese wissen welcher App sie dienen
-    private Circle_Group_Builder circle_builder = new Circle_Group_Builder(this);
-    private Arrow_Builder arrow_builder = new Arrow_Builder(this);
+    private Arrow_Builder arrow_builder = new Arrow_Builder();
+    private Circle_Group_Builder circle_builder = new Circle_Group_Builder(arrow_builder);
     private Combobox_Handler combobox_handler = new Combobox_Handler(FormelBox);
 	
     @Override
@@ -67,7 +69,7 @@ public class GUI_Main extends Application {
         // Erstelle eine HBox für die Buttons
         HBox buttonBox = new HBox(10);
         Button btnAddCircle = new Button("Zustand hinzufügen");
-        Button btnRelation = new Button("Relationen einzeichnen");
+        Button btnRelation = new Button("Transitionen einzeichnen");
         Button btnUndocomboBox = new Button("Undo Formeleingabe");
         Button btnTS_entfernen = new Button("aktuelles TS löschen");
         Button btnBerechnen = new Button("Berechne Lösungsmengen");
@@ -81,34 +83,15 @@ public class GUI_Main extends Application {
         
         //############################Registrieren der Events##########################
         
-        // Funktion zum Beenden des Programms
-        btnBeenden.setOnAction(e -> {
-        	primaryStage.close();
-        });
-        
-        //Funkiton zum löschen des gezeichnet TS
-        btnTS_entfernen.setOnAction(event -> {
-            // Alle Kinder (Formen) vom Pane entfernen und Referenzen löschen
-            drawingPane.getChildren().clear();
-            circle_builder.clearCircleGroups();
-            arrow_builder.clearRelations();
-        });
-       
-        // Funktion zum Hinzufügen eines Kreises, enthält Erstellung,Beschriftung, Pfeile
-        btnAddCircle.setOnAction(e -> {
-        	Group created_circle = circle_builder.create_circle_with_text(draw_relations);//erzeugt eine Gruppe aus Kreis und Beschriftungsfeld
-        	created_circle.setOnMouseClicked(event -> handleCircleClick(event, arrow_builder)); //füge das anklicken der Gruppe als Event hinzu
-	        drawingPane.getChildren().add(created_circle); // Füge den Kreis zum Pane hinzu
-	        draw_relations = false;
-	        circle_builder.colorAllCircles(drawingPane);
-	        btnRelation.setText("Einzeichnen Starten");
-        });
-        
-        btnRelation.setOnAction(e -> {
-            // Toggle für draw_relations
-            draw_relations = !draw_relations;
-
-            if (draw_relations) {
+        // Listener hinzufügen, um Änderungen an drawRelations zu überwachen
+        draw_relations.addListener((observable, oldValue, newValue) -> {
+            // Hier wird der Code ausgeführt, wenn drawRelations geändert wird
+            firstCircle = null;
+            secondCircle = null;
+            firstCircle_label = null;
+            secondCircle_label = null;
+            
+            if (draw_relations.get()) {
                 // Wenn draw_relations aktiviert ist: Button-Text ändern und Kreise gelb färben
                 btnRelation.setText("Einzeichnen Beenden");
 
@@ -131,6 +114,35 @@ public class GUI_Main extends Application {
                     }
                 });
             }
+            
+        });
+        
+        // Funktion zum Beenden des Programms
+        btnBeenden.setOnAction(e -> {
+        	primaryStage.close();
+        });
+        
+        //Funkiton zum löschen des gezeichnet TS
+        btnTS_entfernen.setOnAction(event -> {
+            // Alle Kinder (Formen) vom Pane entfernen und Referenzen löschen
+            drawingPane.getChildren().clear();
+            circle_builder.clearCircleGroups();
+            arrow_builder.clearRelations();
+        });
+       
+        // Funktion zum Hinzufügen eines Kreises, enthält Erstellung,Beschriftung, Pfeile
+        btnAddCircle.setOnAction(e -> {
+        	Group created_circle = circle_builder.create_circle_with_text(draw_relations);//erzeugt eine Gruppe aus Kreis und Beschriftungsfeld
+        	created_circle.setOnMouseClicked(event -> handleCircleClick(event, arrow_builder)); //füge das anklicken der Gruppe als Event hinzu
+	        drawingPane.getChildren().add(created_circle); // Füge den Kreis zum Pane hinzu
+	        draw_relations.set(false);
+	        circle_builder.colorAllCircles(drawingPane);
+	        btnRelation.setText("Transtionenen einzeichnen");
+        });
+        
+        btnRelation.setOnAction(e -> {
+            // Toggle für draw_relations
+            draw_relations.set(!draw_relations.get());
         });
 
         
@@ -146,10 +158,19 @@ public class GUI_Main extends Application {
                 alert.showAndWait();
             } else {
                 // 2. Wenn ja, führen wir die Methode turn_to_normal_form aus
+            	//darw modus beenden
+            	draw_relations.set(false);
+    	        circle_builder.colorAllCircles(drawingPane);
+    	        btnRelation.setText("Transtionenen einzeichnen");
+    	        
+    	        //Normalform
             	combobox_handler.getZustandsformel().turn_to_normal_form();
                 System.out.println("Zustandsformel in Normalform: " + combobox_handler.getZustandsformel().getFormel_string_normal_form());
                 erstelleUmformungsLabelsUndFügeHinzu(FormelBox,combobox_handler.getZustandsformel(),root);
+                
+                //berechnen und baum zeichnen
                 Transitionssystem transsitionssystem = new Transitionssystem(arrow_builder.getList_of_relations());
+                transsitionssystem.printAllZustände();
                 combobox_handler.getZustandsformel().print_erfüllende_zustände(transsitionssystem);
                 circle_builder.färbeKreiseNachZustand(combobox_handler.getZustandsformel().get_Lösungsmenge(transsitionssystem));
                 this.zeige_schritt_für_schritt_lösung(root, combobox_handler.getZustandsformel(),transsitionssystem);
@@ -163,7 +184,7 @@ public class GUI_Main extends Application {
         btnNeustart.setOnAction(event -> {
             try {
                 // Alle Daten und GUI-Elemente zurücksetzen
-                draw_relations = false;
+                draw_relations.set(false);
                 firstCircle = null;
                 secondCircle = null;
                 firstCircle_label = null;
@@ -195,7 +216,7 @@ public class GUI_Main extends Application {
     //Methode zum behandeln des Kreis anklickens (zeichnet Relationen ein), wurde nciht in Circle_Group_Builder ausgelagert weil das Speciher der Klick-Reihenfolge, nur von der GUi gehandelt werden kann
     private void handleCircleClick(MouseEvent event, Arrow_Builder arrow_builder) {
         
-    	if (draw_relations && !inputActive) { // nur wenn im Relation-Zeichnen Modus 
+    	if (draw_relations.get() && !inputActive) { // nur wenn im Relation-Zeichnen Modus 
             Group clickedGroup = (Group) event.getSource();
             Circle clickedCircle = (Circle) clickedGroup.getChildren().get(0);
             Text clickedCircle_label = (Text) clickedGroup.getChildren().get(1);
@@ -229,9 +250,6 @@ public class GUI_Main extends Application {
                 
                 //gibt wieder frei
                 inputActive = false;
-              
-                draw_relations = true;
-
             }
         }
     	
@@ -296,6 +314,8 @@ public class GUI_Main extends Application {
     	CTL_Formel_Baum ctl_baum = new CTL_Formel_Baum(zustandsformel. getStart_der_rekursiven_Definition(),ts);
     	ctl_baum.zeichneBaum(root);
     }
+    
+
     
 
     public static void main(String[] args) {

@@ -7,6 +7,8 @@ import java.util.Set;
 
 import CTL_Backend.Zustand;
 import javafx.application.Application;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.input.MouseEvent;
@@ -20,11 +22,12 @@ public class Circle_Group_Builder {
 	private int circle_counter;
 	private List<Group> list_of_circle_groups = new ArrayList<>();
 	Application app;
+	private Arrow_Builder  arrow_builder;
 	
 
-	Circle_Group_Builder(Application app){
+	Circle_Group_Builder(Arrow_Builder  arrow_builder){
 		this.circle_counter=0;
-		this.app = app;
+		this.arrow_builder= arrow_builder;
 		
 	}
 	
@@ -39,7 +42,7 @@ public class Circle_Group_Builder {
     }
 	
 	//Methode die Group aus Kreis und Beschriftung erzeugt
-    public Group create_circle_with_text(boolean draw_relations) {
+    public Group create_circle_with_text(BooleanProperty draw_relations) {
     	
     	//Kreis
         Circle circle = new Circle(50, Color.BLUE); // Erstelle einen blauen Kreis mit Radius 50
@@ -71,29 +74,38 @@ public class Circle_Group_Builder {
 	
 	
 	// Methode zum Aktivieren von Drag-and-Drop für einen Kreis mit Text
-    private void enableDragAndDrop(Group circlewithtext,boolean draw_relations) {
-    	
-    	Circle circle;
-    	Text text;
-    	circle = (Circle)circlewithtext.getChildren().get(0);
-    	text = (Text)circlewithtext.getChildren().get(1);
-    	
+    private void enableDragAndDrop(Group circleWithText, BooleanProperty draw_relations) {
+        Circle circle = (Circle) circleWithText.getChildren().get(0);
+        Text text = (Text) circleWithText.getChildren().get(1);
+
+        // Variablen zur Speicherung der Offset-Werte
+        final double[] offsetX = new double[1];
+        final double[] offsetY = new double[1];
+
         circle.setOnMousePressed(event -> {
             circle.setFill(Color.RED); // Ändere die Farbe während des Ziehens
+            // Berechne den Offset zwischen der Maus und der Mitte des Kreises
+            offsetX[0] = event.getSceneX() - circle.getCenterX();
+            offsetY[0] = event.getSceneY() - circle.getCenterY();
         });
 
         circle.setOnMouseDragged(event -> {
-            circle.setCenterX(event.getX());
-            circle.setCenterY(event.getY());
-            text.setX(circle.getCenterX() - text.getLayoutBounds().getWidth() / 2);
-            text.setY(circle.getCenterY() + text.getLayoutBounds().getHeight() / 4);
+            if (!draw_relations.get()) {
+                // Setze die neue Position des Kreises basierend auf dem Offset
+                circle.setCenterX(event.getSceneX() - offsetX[0]);
+                circle.setCenterY(event.getSceneY() - offsetY[0]);
+                text.setX(circle.getCenterX() - text.getLayoutBounds().getWidth() / 2);
+                text.setY(circle.getCenterY() + text.getLayoutBounds().getHeight() / 4);
+                arrow_builder.updateArrows(circle);
+            }
         });
 
         circle.setOnMouseReleased(event -> {
-        	if (draw_relations == false) {
-        		circle.setFill(Color.BLUE); // Setze die Farbe zurück, wenn das Ziehen beendet ist
-        	}
-        	else circle.setFill(Color.YELLOW);
+            if (!draw_relations.get()) {
+                circle.setFill(Color.BLUE); // Setze die Farbe zurück, wenn das Ziehen beendet ist
+            } else {
+                circle.setFill(Color.YELLOW);
+            }
         });
     }
     

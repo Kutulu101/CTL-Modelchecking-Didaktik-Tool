@@ -16,4 +16,4 @@ U: P |= φUψ ist eine Pfadformel die gilt, falls es auf P einen Zustand z′ gi
 ○:P |= ○φ ist eine Pfadformel mit der Bedeutung: Im nächsten Zustand gilt φ.//
 □:P |= □φ ist eine Pfadformel mit der Bedeutung: Auf dem Pfad gilt immer φ.//
 Transition eingeben: ermöglicht die Eingabe einer Transition, geschweifte Klammern werden automatisch erzeugt.//
-Formelende: führt zum Überprüfen der Formel mit dem CTL-Modelchecking Algorithmus.//
+Formelende: ermöglicht das Überprüfen der Formel mit dem CTL-Modelchecking Algorithmus.//

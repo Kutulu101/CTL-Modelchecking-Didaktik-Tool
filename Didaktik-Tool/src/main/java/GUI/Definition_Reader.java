@@ -15,11 +15,11 @@ public class Definition_Reader {
         String currentDir = System.getProperty("user.dir");
         File file = new File(currentDir + "/" + source_name); // Datei relativ zum Verzeichnis der JAR
         
-        System.out.println("Versuche, die Datei zu laden von: " + file.getAbsolutePath());
+        //System.out.println("Versuche, die Datei zu laden von: " + file.getAbsolutePath());
         
         // Fallback für Ressourcen innerhalb des JARs
         if (!file.exists()) {
-            System.out.println("Datei nicht gefunden, versuche es innerhalb des JARs zu laden: " + source_name);
+            //System.out.println("Datei nicht gefunden, versuche es innerhalb des JARs zu laden: " + source_name);
             InputStream inputStream = getClass().getClassLoader().getResourceAsStream(source_name);
             if (inputStream == null) {
                 System.err.println("Datei nicht gefunden: " + source_name);

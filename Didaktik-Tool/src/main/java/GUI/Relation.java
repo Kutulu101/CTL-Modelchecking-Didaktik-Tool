@@ -18,7 +18,8 @@ public class Relation {
     private final Polygon arrowHead;
     private final Label arrowLabel;
     private final String detailsString;
-    private int offset_counter;
+    private int offset_counter = 0;
+    private int step = 23;  // Schrittweite als Konstante
 
     public Relation(Circle firstCircle, Circle secondCircle, Text firstCircleLabel, Text secondCircleLabel, 
                     Shape line, Polygon arrowHead, Label arrowLabel, String transition) {
@@ -75,29 +76,28 @@ public class Relation {
 		this.offset_counter = offset_counter;
 	}
 
-	public void increaseOffset_counter(boolean is_reversed) {
-		
-		// Primzahl als Basis für den Offset
-	    int step = 23;
-		
-		if (is_reversed && offset_counter < 0) {
-			this.offset_counter = - this.offset_counter;
-		}else if(is_reversed && offset_counter > 0) {
-			this.offset_counter = - this.offset_counter -step;
-		}
 
-	
-		    // Wenn der Offset 0 ist, setze den ersten Wert auf step
-		    if (this.offset_counter == 0) {
-		        this.offset_counter = step;
-		    } 
-		    // Wenn der Offset positiv ist, mache ihn negativ
-		    else if (this.offset_counter > 0) {
-		        this.offset_counter = -this.offset_counter;
-		    } 
-		    // Wenn der Offset negativ ist, erhöhe ihn um step
-		    else {
-		        this.offset_counter = -this.offset_counter + step;
-		    }
+	public int get_and_increase_Offset() {
+	    // Wenn der aktuelle Offset positiv ist
+	    if (this.offset_counter > 0) {
+	        // Setzen wir ihn auf den negativen Wert und geben diesen zurück
+	        this.offset_counter = -this.offset_counter;
+	        return this.offset_counter;
+	    }
+	    // Wenn der Offset 0 ist
+	    else if (this.offset_counter == 0) {
+	        this.offset_counter = step;  // Setzen auf Schrittwert
+	        return this.offset_counter;
+	    }
+	    // Wenn der Offset negativ ist
+	    else {
+	        // Berechnen des nächsten Wertes
+	        // Hier wird die absolute Anzahl der Schritte ermittelt
+	        int counter = Math.abs(this.offset_counter) / step;  // Anzahl der Schritte
+	        int nextValue = (counter + 1) * step;  // Nächster Wert in Schritten
+	        this.offset_counter = -nextValue;  // Negiere den neuen Wert
+	        return this.offset_counter;
+	    }
 	}
 }
+
