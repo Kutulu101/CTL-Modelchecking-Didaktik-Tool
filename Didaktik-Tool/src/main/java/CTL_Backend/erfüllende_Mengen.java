@@ -66,7 +66,7 @@ class psi_Until_gamma extends Verzweigung implements detail_lösung{
 	String detail_lösung;
 	
 	public String get_schritt_weise_lösung(){
-		//System.out.println(this.detail_lösung);
+		System.out.println(this.detail_lösung);
 		return this.detail_lösung;
 	}
 	
@@ -282,7 +282,7 @@ class alle_übergänge  extends Ast implements HatÜbergang{
             }
 
             // Wenn alle erreichbaren Zustände in der inneren Menge sind, füge den Zustand dem Rückgabeset hinzu
-            if (alleErreichbarenInMenge) {
+            if (alleErreichbarenInMenge&& relation_abgehend.size() != 0) {
                 returnSet.add(zustand);
             }
         }
@@ -371,7 +371,7 @@ class ein_pfad_auf_dem_immer_gilt extends Ast implements detail_lösung{
 	}
 	
 	public String get_schritt_weise_lösung(){
-		//System.out.println(this.detail_lösung);
+		System.out.println(this.detail_lösung);
 		return this.detail_lösung;
 	}
 	

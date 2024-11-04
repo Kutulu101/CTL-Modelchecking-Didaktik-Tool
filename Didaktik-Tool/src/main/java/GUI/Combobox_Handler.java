@@ -46,6 +46,12 @@ public class Combobox_Handler {
 		return zustandsformel;
 	}
     
+    public Zustandsformel get_transformed_Zustandsformel() {
+    	zustandsformel.turn_to_normal_form();
+    	zustandsformel.turn_string_into_recursive_ctl();
+		return zustandsformel;
+	}
+    
     public void handle_first_combobox(BorderPane root) {
         // Erstelle ein Label für den Text
         Label textLabel = new Label("Formel eingeben:");

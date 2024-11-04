@@ -1,6 +1,7 @@
 package GUI;
 
 import javafx.geometry.Pos;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.Pane;
@@ -9,6 +10,7 @@ import javafx.scene.shape.*;
 import javafx.scene.text.Text;
 
 import java.util.HashSet;
+import java.util.List;
 
 public class Arrow_Builder {
 
@@ -35,7 +37,7 @@ public class Arrow_Builder {
     }
 
     public void drawArrow(Pane drawingpane, Circle firstCircle, Circle secondCircle, 
-                          Text firstCircleLabel, Text secondCircleLabel) {
+                          Text firstCircleLabel, Text secondCircleLabel,List<String> vorauswahl_transitionen) {
 
         int offset = off_set_for_existing_relations(firstCircle, secondCircle);
 
@@ -58,7 +60,7 @@ public class Arrow_Builder {
             drawingpane.getChildren().addAll(line, arrowHead);
             showTextInputField((points.startX + points.endX) / 2, (points.startY + points.endY) / 2,
                                0, line, arrowHead, firstCircle, secondCircle, 
-                               firstCircleLabel, secondCircleLabel);
+                               firstCircleLabel, secondCircleLabel,vorauswahl_transitionen);
         } else {
             line = zeichneTeilkreisLinie(startX, startY, firstCircle.getRadius(), 4 * offset, 210);
             arrowHead = createArcArrowHead((Arc) line, offset);
@@ -66,7 +68,7 @@ public class Arrow_Builder {
 
             showTextInputField(((Arc) line).getCenterX(), ((Arc) line).getCenterY(),
                                50, line, arrowHead, firstCircle, secondCircle, 
-                               firstCircleLabel, secondCircleLabel);
+                               firstCircleLabel, secondCircleLabel,vorauswahl_transitionen);
         }
     }
 
@@ -160,49 +162,84 @@ public class Arrow_Builder {
         return arrowHead;
     }
 
-    private void showTextInputField(double x, double y, int offset, Shape line, Polygon arrowHead,
-                                    Circle firstCircle, Circle secondCircle, Text firstCircleLabel, 
-                                    Text secondCircleLabel) {
+    private void showTextInputField(double x, double y, int offset, Shape line, Polygon arrowHead,Circle firstCircle, Circle secondCircle, Text firstCircleLabel, Text secondCircleLabel, List<String> vorauswahl_transitionen) {
 
-        TextField inputField = new TextField();
-        inputField.setLayoutX(x);
-        inputField.setLayoutY(y);
-        inputField.setPromptText("Zeichen Komma getrennt eingeben...");
+Pane parentPane = (Pane) firstCircle.getParent().getParent();
+Label returnLabel = new Label();
+returnLabel.setLayoutX(x);
+returnLabel.setLayoutY(y);
+returnLabel.setMinWidth(50 + offset);
+returnLabel.setAlignment(Pos.CENTER);
+returnLabel.setStyle("-fx-font-size: 18px;");
 
-        Pane parentPane = (Pane) firstCircle.getParent().getParent();
-        parentPane.getChildren().add(inputField);
+// Überprüfen, ob die Liste nicht leer ist
+if (vorauswahl_transitionen != null && !vorauswahl_transitionen.isEmpty()) {
+// Erstellen und konfigurieren der ComboBox
+ComboBox<String> comboBox = new ComboBox<>();
+comboBox.getItems().addAll(vorauswahl_transitionen);
+comboBox.setLayoutX(x);
+comboBox.setLayoutY(y);
+comboBox.setPromptText("Wählen Sie eine Option...");
 
-        Label returnLabel = new Label();
-        returnLabel.setLayoutX(x);
-        returnLabel.setLayoutY(y);
-        returnLabel.setMinWidth(50 + offset);
-        returnLabel.setAlignment(Pos.CENTER);
-        returnLabel.setStyle("-fx-font-size: 18px;");
+parentPane.getChildren().add(comboBox);
 
-        inputField.setOnAction(event -> {
-            String userInput = inputField.getText();
-            returnLabel.setText(userInput);
+// Action-Event für die ComboBox
+comboBox.setOnAction(event -> {
+String selectedValue = comboBox.getValue();
+returnLabel.setText(selectedValue);
+parentPane.getChildren().add(returnLabel);
+parentPane.getChildren().remove(comboBox);
 
-            returnLabel.setOnMousePressed(event2 -> {
-                offsetX = event2.getX();
-                offsetY = event2.getY();
-            });
+// Label Drag-and-Drop Verhalten
+returnLabel.setOnMousePressed(event2 -> {
+offsetX = event2.getX();
+offsetY = event2.getY();
+});
 
-            returnLabel.setOnMouseDragged(event2 -> {
-                returnLabel.setLayoutX(event2.getSceneX() - offsetX);
-                returnLabel.setLayoutY(event2.getSceneY() - offsetY);
-            });
+returnLabel.setOnMouseDragged(event2 -> {
+returnLabel.setLayoutX(event2.getSceneX() - offsetX);
+returnLabel.setLayoutY(event2.getSceneY() - offsetY);
+});
 
-            parentPane.getChildren().add(returnLabel);
-            parentPane.getChildren().remove(inputField);
+// Verarbeitung des ausgewählten Wertes
+add_relation(new Relation(firstCircle, secondCircle, firstCircleLabel, 
+                  secondCircleLabel, line, arrowHead, returnLabel, selectedValue));
+});
+} else {
+// Wenn die Liste leer ist, ein TextField erstellen
+TextField inputField = new TextField();
+inputField.setLayoutX(x);
+inputField.setLayoutY(y);
+inputField.setPromptText("Zeichen Komma getrennt eingeben...");
 
-            String[] labels = returnLabel.getText().split(",");
-            for (String label : labels) {
-                add_relation(new Relation(firstCircle, secondCircle, firstCircleLabel, 
-                                          secondCircleLabel, line, arrowHead, returnLabel, label));
-            }
-        });
-    }
+parentPane.getChildren().add(inputField);
+
+inputField.setOnAction(event -> {
+String userInput = inputField.getText();
+returnLabel.setText(userInput);
+parentPane.getChildren().add(returnLabel);
+parentPane.getChildren().remove(inputField);
+
+// Label Drag-and-Drop Verhalten
+returnLabel.setOnMousePressed(event2 -> {
+offsetX = event2.getX();
+offsetY = event2.getY();
+});
+
+returnLabel.setOnMouseDragged(event2 -> {
+returnLabel.setLayoutX(event2.getSceneX() - offsetX);
+returnLabel.setLayoutY(event2.getSceneY() - offsetY);
+});
+
+// Verarbeitung des Texteingangs
+String[] labels = returnLabel.getText().split(",");
+for (String label : labels) {
+add_relation(new Relation(firstCircle, secondCircle, firstCircleLabel, 
+                      secondCircleLabel, line, arrowHead, returnLabel, label));
+}
+});
+}
+}
 
     private int off_set_for_existing_relations(Circle firstCircle, Circle secondCircle) {
         int offset = 0;

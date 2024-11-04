@@ -2,22 +2,24 @@ package CTL_Backend;
 
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
-import javafx.scene.layout.HBox;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.CornerRadii;
 import javafx.scene.paint.Color;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextArea;
 import javafx.scene.text.Text;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 
 public class CTL_Formel_Baum {
@@ -25,19 +27,61 @@ public class CTL_Formel_Baum {
     // Einstiegs- oder Startpunkt des Baumes
     private erfüllende_Mengen startpunkt = null;
     private Transitionssystem ts;
+	private boolean lösungsmengen_anzeigen;
+	private List<NodeBox> allNodeBoxes = new ArrayList<>(); // Liste aller NodeBox-Instanzen
 
-    // Konstruktor, um den Startpunkt des Baumes festzulegen
+    public boolean isLösungsmengen_anzeigen() {
+		return lösungsmengen_anzeigen;
+	}
+
+	public void setLösungsmengen_anzeigen(boolean lösungsmengen_anzeigen) {
+		this.lösungsmengen_anzeigen = lösungsmengen_anzeigen;
+		
+		for(NodeBox node:allNodeBoxes) {
+			if(lösungsmengen_anzeigen) {
+				node.makeToggleButtonVisible();
+				if(node instanceof NodeBox_with_detail_solution) {
+					((NodeBox_with_detail_solution) node).make_detail_toggle_button_visible();
+				}
+			}else {
+				node.makeToggleButtonInvisible();
+				if(node instanceof NodeBox_with_detail_solution) {
+					((NodeBox_with_detail_solution) node).make_detail_toggle_button_unvisible();
+					}
+			}
+		}
+	}
+
+	// Konstruktor, um den Startpunkt des Baumes festzulegen
     public CTL_Formel_Baum(erfüllende_Mengen startpunkt,Transitionssystem ts) {
         this.startpunkt = startpunkt;
         this.ts = ts;
     }
 
     // Öffentliche Methode, die von einer anderen Klasse aus aufgerufen werden kann, um den Baum zu zeichnen
-    public void zeichneBaum(Pane pane) {
+    public StackPane zeichneBaum(int startpunkt_auf_pane_X, int startpunkt_auf_pane_y) {
+        StackPane baumPane = new StackPane(); // Container für das Ein-/Ausblenden
+        Pane zeichenPane = new Pane(); // Zeichenfläche für den Baum
+        
+
         if (startpunkt != null) {
-            // Startet das Zeichnen des Baums an der Position (400, 50)
-            drawTree(pane, startpunkt, 400, 50, 200, 80);
+        	//Berechnet die Lösungen, Detaillösungen usw.
+        	startpunkt.berechne(ts);
+            // Zeichnet den Baum auf der Zeichenfläche
+            drawTree(zeichenPane, startpunkt, startpunkt_auf_pane_X, startpunkt_auf_pane_y, 200, 80);
         }
+        
+        zeichenPane.setBackground(new Background(new BackgroundFill(
+                Color.TRANSPARENT, CornerRadii.EMPTY, Insets.EMPTY
+            )));
+
+        // Füge die Zeichenfläche zum StackPane hinzu
+        baumPane.getChildren().add(zeichenPane);
+        baumPane.setBackground(new Background(new BackgroundFill(
+                Color.TRANSPARENT, CornerRadii.EMPTY, Insets.EMPTY
+            )));
+
+        return baumPane;
     }
 
     // Methode zum Zeichnen des Baumes (rekursiv)
@@ -62,18 +106,24 @@ public class CTL_Formel_Baum {
         }
         else symbol = node.get_symbol();
         
-        NodeBox combo_at_node = createNodeBox(symbol,node);
-        StackPane nodeBox = combo_at_node.getStackPane();
-        nodeBox.setLayoutX(x);
-        nodeBox.setLayoutY(y);
-        pane.getChildren().add(nodeBox);
-
+        NodeBox combo_at_node;
         
         // Wenn das Element das Interface Detail_Lösung implementiert
         if (node instanceof detail_lösung) {
-            addToggleDetailSolution(nodeBox,  (detail_lösung)node,pane);
+        	combo_at_node = new NodeBox_with_detail_solution(node, symbol, ts);
+            Pane nodeBox = ((NodeBox_with_detail_solution) combo_at_node).getDetail_toggle_pane_complete();
+            nodeBox.setLayoutX(x);
+            nodeBox.setLayoutY(y);
+        	pane.getChildren().add(nodeBox);
+        }else {
+        	combo_at_node = new NodeBox(symbol,node, ts);
+            StackPane nodeBox = combo_at_node.getStackPane();
+            nodeBox.setLayoutX(x);
+            nodeBox.setLayoutY(y);
+        	pane.getChildren().add(nodeBox);
         }
 
+        allNodeBoxes.add(combo_at_node);
 
         // Wenn der Knoten eine innere Menge hat (Ast), zeichne die innere Menge rekursiv
         if (node instanceof Ast) {
@@ -103,8 +153,136 @@ public class CTL_Formel_Baum {
         }
     }
     
- // Neue private Methode zum Hinzufügen des Pluszeichens und der Textbox
-    private void addToggleDetailSolution(StackPane nodeBox, detail_lösung menge, Pane pane) {
+    // Zeichne eine Linie zwischen Eltern- und Kindknoten
+    private void drawLine(Pane pane, double startX, double startY, double endX, double endY) {
+    	Line line = new Line(startX+40, startY+40, endX+40, endY);
+        line.setStroke(Color.BLACK);
+        pane.getChildren().add(line);
+    }
+}
+    
+  //eigne Klasse die es ermöglicht auf lösungsset umzuschalten
+class NodeBox {
+    protected StackPane stackpane;
+    protected erfüllende_Mengen erfüllende_menge;
+    private boolean isShowingSolutionSet; // Zustand für den Toggle
+    private String nodename;
+    private Button togglebutton;
+
+    public NodeBox(String nodeName, erfüllende_Mengen erfüllende_menge, Transitionssystem ts) {
+        this.erfüllende_menge = erfüllende_menge;
+        this.nodename = nodeName;
+        this.isShowingSolutionSet = false; // Standardzustand ist false
+        
+        // Rechteck NodeBox
+        Rectangle rect = new Rectangle(80, 40);
+        rect.setFill(Color.LIGHTBLUE);
+        rect.setStroke(Color.BLACK);
+        
+        // Text auf dem Node
+        Text text = new Text(nodeName);
+        text.setStyle("-fx-font-size: 6;");
+        
+        // ToggleButton, der die Lösung anzeigen kann
+        Button toggleButton = new Button("->");
+
+        // Button auf 10 Pixel Durchmesser anpassen und Form als Kreis setzen
+        double radius = 7; // Radius ist die Hälfte des Durchmessers
+        Circle circleShape = new Circle(radius);
+        toggleButton.setShape(circleShape);
+        toggleButton.setMinSize(2 * radius, 2 * radius); // Minimale Größe
+        toggleButton.setMaxSize(2 * radius, 2 * radius); // Maximale Größe
+
+        // Hintergrund- und Randfarbe einstellen
+        toggleButton.setStyle(
+            "-fx-background-color: white; " +
+            "-fx-border-color: black; " +
+            "-fx-border-width: 1px;"+
+            "-fx-font-size: 6px;"
+        );
+        
+        // Button unsichtbar machen
+        toggleButton.setVisible(false);
+
+        // StackPane für NodeBox mit den grafischen Elementen
+        stackpane = new StackPane();
+        stackpane.getChildren().addAll(rect, text, toggleButton);
+
+        // ToggleButton in die obere linke Ecke setzen
+        StackPane.setAlignment(toggleButton, Pos.TOP_LEFT);
+        toggleButton.setTranslateX(-5); // Offset für die linke Ecke
+        toggleButton.setTranslateY(2 * radius - rect.getHeight() / 2); // Offset für die obere Ecke
+
+        // Klick-Event für ToggleButton
+        toggleButton.setOnMouseClicked(event -> {
+            handleMouseClickEvent(ts); // Verwendet die neue Methode zum Umschalten
+        });
+
+        this.togglebutton = toggleButton;
+    }
+
+    public StackPane getStackPane() {
+        return stackpane;
+    }
+
+    public erfüllende_Mengen getData() {
+        return erfüllende_menge;
+    }
+    
+    public void makeToggleButtonVisible() {
+        this.togglebutton.setVisible(true);
+    }
+    
+    public void makeToggleButtonInvisible() {
+        this.togglebutton.setVisible(false);
+    }
+    
+    public String getNodename() {
+        return nodename;
+    }
+
+    public boolean isShowingSolutionSet() {
+        return isShowingSolutionSet;
+    }
+
+    public void toggleSolutionSet() {
+        isShowingSolutionSet = !isShowingSolutionSet;
+    }
+    
+    public void handleMouseClickEvent(Transitionssystem ts) {
+        toggleSolutionSet();
+
+        if (isShowingSolutionSet) {
+            // Zeige die Lösungsmengen an
+            Set<Zustand> lösungsMenge = erfüllende_menge.berechne(ts);  // `ts` muss verfügbar sein
+            StringBuilder names = new StringBuilder();
+            for (Zustand zustand : lösungsMenge) {
+                if (names.length() > 0) names.append(", ");
+                names.append(zustand.getName());
+            }
+            ((Text) stackpane.getChildren().get(1)).setText(names.toString()); // Setze den Text auf die Lösungsmengen
+            ((Rectangle) stackpane.getChildren().get(0)).setFill(Color.LIGHTGREEN); // Ändere die Farbe zu Grün
+        } else {
+            // Setze auf den ursprünglichen Text zurück
+            ((Text) stackpane.getChildren().get(1)).setText(nodename); // Ursprünglicher Text
+            ((Rectangle) stackpane.getChildren().get(0)).setFill(Color.LIGHTBLUE); // Ursprüngliche Farbe
+        }
+    }
+}
+
+
+class NodeBox_with_detail_solution extends NodeBox {
+    
+	private Pane detail_toggle_pane_complete;
+    private Button toogel_button_detail;
+
+    public NodeBox_with_detail_solution(erfüllende_Mengen data, String nodename,Transitionssystem ts) {
+        super(nodename, data,ts); // Konstruktor der Oberklasse aufrufen
+        this.detail_toggle_pane_complete = createToggleDetailSolution_Pane((detail_lösung)this.erfüllende_menge);
+    }
+
+	// Neue private Methode zum Hinzufügen des Pluszeichens und der Textbox
+    private Pane createToggleDetailSolution_Pane(detail_lösung menge) {
         
     	// Toggle-Button erstellen und gestalten
         Button toggleButton = new Button("+");
@@ -117,6 +295,8 @@ public class CTL_Formel_Baum {
             "-fx-min-width: 5px; " +
             "-fx-min-height: 5px;"
         );
+        
+        this.toogel_button_detail = toggleButton;
 
         // Label für die Detail-Lösung
         Label textBox = new Label(menge.get_schritt_weise_lösung());
@@ -130,19 +310,18 @@ public class CTL_Formel_Baum {
 
         // ScrollPane erstellen
         ScrollPane scrollPane = new ScrollPane(textBox);
-        scrollPane.setPrefWidth(300); 
+        scrollPane.setPrefWidth(350); 
         scrollPane.setFitToWidth(true);
         scrollPane.setVisible(false); 
         
-     // Positioniere den Button und die ScrollPane relativ zur nodeBox
-        toggleButton.setLayoutX(nodeBox.getLayoutX() +30); 
-        toggleButton.setLayoutY(nodeBox.getLayoutY() - 25);
+        // Position toggleButton relative to stackpane using translateX and translateY
+        toggleButton.setTranslateX(70);  // Relative offset instead of layoutX
+        toggleButton.setTranslateY(-10);
 
-        scrollPane.setLayoutX(nodeBox.getLayoutX() +35); 
-        scrollPane.setLayoutY(nodeBox.getLayoutY() -25);
-
-
-
+        // Position scrollPane relative to stackpane using translateX and translateY
+        scrollPane.setTranslateX(75);  // Relative offset instead of layoutX
+        scrollPane.setTranslateY(-5);
+        
         // Toggle-Action für den Button
         toggleButton.setOnAction(event -> {
             if (toggleButton.getText().equals("+")) {
@@ -155,99 +334,27 @@ public class CTL_Formel_Baum {
             }
         });
         
+        //zuerst unsichtbar
+        toggleButton.setVisible(false);
+        
         // Füge den Toggle-Button und die ScrollPane an der ParentPane hinzu
         Pane container = new Pane();  // Statt BorderPane
-        container.setStyle(
-            "-fx-background-color: lightgrey;");
+        container.setPrefHeight(10);
+        container.setPrefWidth(10);
+        container.getChildren().add(this.stackpane);
         container.getChildren().addAll(scrollPane, toggleButton);
-        pane.getChildren().add(container);
-        // Clipping für das Pane deaktivieren
-        pane.setClip(null);
-    }
-
-
-
-
-
-    // Erstellt ein grafisches Element für einen Knoten
-    private NodeBox createNodeBox(String nodeName, erfüllende_Mengen ctl_lösungsmenge) {
-        Rectangle rect = new Rectangle(80, 40);
-        rect.setFill(Color.LIGHTBLUE);
-        rect.setStroke(Color.BLACK);
         
-        Text text = new Text(nodeName);
-        text.setStyle("-fx-font-size: 6;");
-
-        StackPane stack = new StackPane();
-        stack.getChildren().addAll(rect, text);
-
-        NodeBox nodeBox = new NodeBox(stack, ctl_lösungsmenge,nodeName); // Erstelle NodeBox-Instanz
-
-        // Mache das Rechteck klickbar
-        rect.setOnMouseClicked(event -> {
-            nodeBox.toggleSolutionSet(); // Toggle-Zustand in NodeBox umschalten
-            
-            if (nodeBox.isShowingSolutionSet()) {
-                // Zeige die Lösungsmengen an
-                Set<Zustand> lösungsMenge = ctl_lösungsmenge.berechne(ts);
-                StringBuilder names = new StringBuilder();
-                for (Zustand zustand : lösungsMenge) {
-                    if (names.length() > 0) names.append(", ");
-                    names.append(zustand.getName());
-                }
-                text.setText(names.toString()); // Setze den Text auf die Lösungsmengen
-                rect.setFill(Color.LIGHTGREEN); // Ändere die Farbe zu Grün
-            } else {
-                // Zeige den ursprünglichen Text an
-                text.setText(nodeName); // Setze den Text zurück
-                rect.setFill(Color.LIGHTBLUE); // Ändere die Farbe zurück zu Blau
-            }
-        });
-
-        return nodeBox; // Gebe die NodeBox zurück
+        return container;
     }
-
-    // Zeichne eine Linie zwischen Eltern- und Kindknoten
-    private void drawLine(Pane pane, double startX, double startY, double endX, double endY) {
-    	Line line = new Line(startX, startY + 20, endX, endY-20);
-        line.setStroke(Color.BLACK);
-        pane.getChildren().add(line);
-    }
-}
     
-    //eigne Klasse die es ermöglicht auf lösungsset umzuschalten
-class NodeBox {
-        private StackPane stackpane;
-        private erfüllende_Mengen data;
-        private boolean isShowingSolutionSet; // Zustand für den Toggle
-        private String nodename;
-
-        public NodeBox(StackPane stack, erfüllende_Mengen data,String nodename) {
-            this.stackpane = stack;
-            this.data = data;
-            this.isShowingSolutionSet = false; // Standardzustand ist false
-            this.nodename = nodename;
-        }
-
-        public StackPane getStackPane() {
-            return stackpane;
-        }
-
-        public erfüllende_Mengen getData() {
-            return data;
-        }
-        
-
-        public String getNodename() {
-			return nodename;
-		}
-
-		public boolean isShowingSolutionSet() {
-            return isShowingSolutionSet;
-        }
-
-        public void toggleSolutionSet() {
-            isShowingSolutionSet = !isShowingSolutionSet;
-        }
+    public void make_detail_toggle_button_visible() {
+    	this.toogel_button_detail.setVisible(true);
     }
-
+    
+    public void make_detail_toggle_button_unvisible() {
+    	this.toogel_button_detail.setVisible(false);
+    }
+    public Pane getDetail_toggle_pane_complete() {
+		return detail_toggle_pane_complete;
+	}
+}

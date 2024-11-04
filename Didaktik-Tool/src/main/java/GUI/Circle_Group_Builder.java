@@ -67,6 +67,7 @@ public class Circle_Group_Builder {
         
         //CSS-Tag anfügen
         circleWithText.getStyleClass().add("circle_with_text");
+        
         //in Liste einfügen
         list_of_circle_groups.add(circleWithText);
         return circleWithText;
@@ -109,7 +110,7 @@ public class Circle_Group_Builder {
         });
     }
     
-    public void färbeKreiseNachZustand(Set<Zustand> lösungsmenge) {
+    public void färbeKreiseNachZustand(Set<Zustand> lösungsmenge, boolean is_colored) {
         for (Group group : this.list_of_circle_groups) {
             // Prüfen, ob die Gruppe die erwarteten Kinder enthält (Circle an Index 0, Text an Index 1)
             if (group.getChildren().size() >= 2) {
@@ -129,16 +130,16 @@ public class Circle_Group_Builder {
                             .anyMatch(zustandsName -> zustandsName.equals(textName));
 
                     // Färben des Kreises basierend auf der Bedingung
-                    if (gefunden) {
+                    if (gefunden && is_colored) {
                         kreis.setFill(Color.GREEN);  // Falls der Zustand gefunden wird
-                    } else {
+                    } else if (is_colored) {
                         kreis.setFill(Color.RED);    // Falls der Zustand nicht in der Lösungsmenge ist
                     }
+                    else{kreis.setFill(Color.BLUE);}//Blau wenn nciht gefärbt werdne soll
                 }
             }
         }
     }
-    
     
     // Methode, um rekursiv alle Kreise zu färben
     public void colorAllCircles(Node node) {

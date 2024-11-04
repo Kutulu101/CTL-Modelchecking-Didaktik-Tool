@@ -12,7 +12,7 @@ import java.util.Set;
 
 public class Zustandsformel {
 	
-	private String formel_string;
+	private String formel_string = "";
 	private String formel_string_normal_form = "";
 	private erfüllende_Mengen Start_der_rekursiven_Definition;
 	private Set<Zustand> lösungsmenge = new HashSet<>();
@@ -34,7 +34,6 @@ public class Zustandsformel {
     
 	public Zustandsformel(String formel_string) {
 		
-		this.formel_string = formel_string;
 		
 		gruendeFuerNichteinlesbareSymbole = new HashMap<>();
 		
@@ -42,6 +41,16 @@ public class Zustandsformel {
         for (String symbol : this.all_symbols) {
             this.gruendeFuerNichteinlesbareSymbole.put(symbol, "");
         }
+        
+        // Lese alle Zeichen aus dem formel_string ein
+        for (char ch : formel_string.toCharArray()) {
+            this.ein_char_einlesen(String.valueOf(ch));  // Cast von char zu String
+        }
+        
+        //String reinigen 
+        this.formel_string = this.formel_string.replace(",", "");
+        this.formel_string = this.formel_string.replace(" ", "");
+       
 	}
 	
 	 public void turn_to_normal_form() {
@@ -132,14 +141,33 @@ public class Zustandsformel {
 	            // Suche den Teil links von ∨ (psi)
 	            String leftPart = "";
 	            int leftIndex = index - 1;
-	            if (this.formel_string_normal_form.charAt(leftIndex) == ')') {
-	                // Finde die zugehörige öffnende Klammer
-	                int openParenIndex = this.formel_string_normal_form.lastIndexOf("(", leftIndex);
-	                leftPart = this.formel_string_normal_form.substring(openParenIndex, index);
-	                // Ergänze ¬(¬ vor psi
-	                leftPart = "¬(¬" + leftPart;
+
+	            // Zähle die Klammern im linken Teil
+	            int openCount = 0;
+	            int closeCount = 0;
+
+	            // Durchlaufe den linken Teil bis zum Anfang des Strings
+	            while (leftIndex >= 0) {
+	                char currentChar = this.formel_string_normal_form.charAt(leftIndex);
+	                if (currentChar == '(') {
+	                    openCount++;
+	                } else if (currentChar == ')') {
+	                    closeCount++;
+	                }
+	                leftIndex--;
+	            }
+
+	            // Setze den leftIndex wieder auf den ursprünglichen Wert
+	            leftIndex = index - 1;
+
+	            // Prüfe die Anzahl der Klammern und bestimme, wo ¬(¬ eingefügt werden soll
+	            if (openCount > closeCount) {
+	                // Es gibt mehr öffnende als schließende Klammern
+	                // Suche die letzte öffnende Klammer im linken Teil
+	                int lastOpenParenIndex = this.formel_string_normal_form.lastIndexOf("(", index);
+	                leftPart = this.formel_string_normal_form.substring(0, lastOpenParenIndex + 1) + "¬(¬" + this.formel_string_normal_form.substring(lastOpenParenIndex + 1, index);
 	            } else {
-	                // Wenn keine Klammer, dann alles links von ∨ als psi betrachten
+	                // Es gibt gleich viele oder mehr schließende Klammern
 	                leftPart = "¬(¬" + this.formel_string_normal_form.substring(0, index);
 	            }
 
@@ -178,7 +206,7 @@ public class Zustandsformel {
 
 	 
 	// Idee: Zustandsformel in kleinere Formeln  aufteilen an den Stellen 1 oder 0 oder E.....U--> erst alle Formel die auf 0 und 1 enden zusammenbauen, dannach die Formel mit den Verzwiegungen kombinieren
-	 private void turn_string_into_recursive_ctl() {
+	 public void turn_string_into_recursive_ctl() {
 		 
 	    // Wenn formel_string_normal_form leer ist, zuerst turn_to_normal_form() aufrufen
 	    if (formel_string_normal_form.equals("")) {
@@ -495,6 +523,9 @@ public class Zustandsformel {
 	 
 	 
 	public  Set<Zustand> get_Lösungsmenge(Transitionssystem ts){
+		if (this.Start_der_rekursiven_Definition == null){
+			this.turn_string_into_recursive_ctl();
+		}
 		this.lösungsmenge = Start_der_rekursiven_Definition.berechne(ts);
 		return this.lösungsmenge;
 	}
@@ -514,6 +545,7 @@ public class Zustandsformel {
 	    final String VOR_PFADOPERATOR = "Vor den Pfadoperatoren \"◇\", \"○\", \"□\" muss ein Quantor wie \"∃\" oder \"∀\" stehen, da man sonst eine Pfadformel erhält."+ "\n\n";
 	    final String UND_UND_ODER_NUR_NACH_ZUSTANDSFORMEL = "UND oder ODER können nur nach einer Zustandsformel eingelesen werden nicht nach einer Pfadformel";
 	    final String FORMELENDE_NUR_WENN_ZUSTANDSFORMEL = "Die Formeleingabe kann nur mit einer korrekten Zustandsformel beendet werden";
+	    final String FORMELENDE_NUR_WENN_KLAMMERN_OFFEN = "Die Formeleingabe kann nur mit beendet werden, wenn glecih viele öffnende und schließende Klammern vorhanden sind"+ "\n\n";
 	    final String UNTIL_NUR_WENN_ZUSTANDSFORMEL = "U kann nur nach einer korrekten Zustandsformel eingesetzt werden";
 	    
 	    // Ursprungszustand herstellen
@@ -620,7 +652,9 @@ public class Zustandsformel {
 	        this.fehlerbeschreibung = "";
 	    }
 	    
-	 
+	    if(this.counter_normale_klammern != 0) {
+	    	this.gruendeFuerNichteinlesbareSymbole.put("Formelende", FORMELENDE_NUR_WENN_KLAMMERN_OFFEN);
+	    }
 
 	    return this.gruendeFuerNichteinlesbareSymbole;
 	}
@@ -917,6 +951,9 @@ public class Zustandsformel {
 	}
 
 	public erfüllende_Mengen getStart_der_rekursiven_Definition() {
+		if (this.Start_der_rekursiven_Definition == null){
+			this.turn_string_into_recursive_ctl();
+		}	
 		return Start_der_rekursiven_Definition;
 	}
 	
