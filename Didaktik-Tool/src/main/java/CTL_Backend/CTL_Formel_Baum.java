@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -60,42 +59,30 @@ public class CTL_Formel_Baum {
     }
 
     // Öffentliche Methode, die von einer anderen Klasse aus aufgerufen werden kann, um den Baum zu zeichnen
-    public ScrollPane zeichneBaum(int startpunkt_auf_pane_X, int startpunkt_auf_pane_y) {
-        ScrollPane scrollPane = new ScrollPane(); // ScrollPane für das Ein-/Ausblenden
+    public StackPane zeichneBaum(int startpunkt_auf_pane_X, int startpunkt_auf_pane_y) {
+        StackPane baumPane = new StackPane(); // Container für das Ein-/Ausblenden
         Pane zeichenPane = new Pane(); // Zeichenfläche für den Baum
+        
 
         if (startpunkt != null) {
-            // Berechnet die Lösungen, Detaillösungen usw.
-            startpunkt.berechne(ts);
-
+        	//Berechnet die Lösungen, Detaillösungen usw.
+        	startpunkt.berechne(ts);
             // Zeichnet den Baum auf der Zeichenfläche
             drawTree(zeichenPane, startpunkt, startpunkt_auf_pane_X, startpunkt_auf_pane_y, 200, 80);
-
-            // Finde die Grenzen des Baumes, um die Größe von zeichenPane anzupassen
-            Bounds bounds = zeichenPane.getLayoutBounds();
-            zeichenPane.setMinWidth(bounds.getWidth());
-            zeichenPane.setMinHeight(bounds.getHeight());
         }
-
-        zeichenPane.setBackground(new Background(new BackgroundFill(
-            Color.PINK, CornerRadii.EMPTY, Insets.EMPTY
-        )));
-
-        // Füge die Zeichenfläche zur ScrollPane hinzu
-        scrollPane.setContent(zeichenPane);
-        scrollPane.setPannable(true); // Ermöglicht Panning bei großen Bäumen
         
-        // Scrollleisten immer sichtbar machen
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS); // Horizontale Scrollbar immer anzeigen
-        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS); // Vertikale Scrollbar immer anzeigen
+        zeichenPane.setBackground(new Background(new BackgroundFill(
+                Color.TRANSPARENT, CornerRadii.EMPTY, Insets.EMPTY
+            )));
 
-        // Optional: Mindestgröße für die ScrollPane setzen
-        scrollPane.setMinSize(200, 200); // Beispielgröße anpassen
+        // Füge die Zeichenfläche zum StackPane hinzu
+        baumPane.getChildren().add(zeichenPane);
+        baumPane.setBackground(new Background(new BackgroundFill(
+                Color.TRANSPARENT, CornerRadii.EMPTY, Insets.EMPTY
+            )));
 
-        return scrollPane;
+        return baumPane;
     }
-
-
 
     // Methode zum Zeichnen des Baumes (rekursiv)
     private void drawTree(Pane pane, erfüllende_Mengen node, double x, double y, double xOffset, double yOffset) {
