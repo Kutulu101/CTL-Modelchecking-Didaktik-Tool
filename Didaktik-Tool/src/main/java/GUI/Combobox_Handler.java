@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import CTL_Backend.Zustandsformel;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -67,7 +66,6 @@ public class Combobox_Handler {
         this.configureComboBox(eingabeCombobox,this.getZustandsformel().einlesbare_Symbole());
         historyStack.push(eingabeCombobox);
         this.formelbox.getChildren().add(eingabeCombobox);
-        this.formelbox.setPadding(new Insets(10));
         
         // Ereignisbehandlung für die ComboBox
         eingabeCombobox.setOnAction(this::handleComboBoxAction);

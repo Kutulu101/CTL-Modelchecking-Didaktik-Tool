@@ -17,15 +17,12 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.beans.value.ChangeListener;
-import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
-import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.input.MouseEvent;
-import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -60,7 +57,6 @@ public class GUI_freier_Modus extends Application {
     //blockiert Eingaben
     private boolean inputActive = false;
     
-    
   //Array zur Speicherung der Vorauswahltransition
     private List<String> vorauswahl_transitionen;
     
@@ -72,11 +68,6 @@ public class GUI_freier_Modus extends Application {
     private Circle_Group_Builder circle_builder = new Circle_Group_Builder(arrow_builder);
     private Combobox_Handler combobox_handler = new Combobox_Handler(FormelBox);
     private SidebarHandler sidebar_handler = new SidebarHandler(circle_builder);
-    
-    //Für Screen Einstellungen
-	Rectangle2D screenBounds;
-	protected double total_screen_width;
-	protected double total_screen_height;
 	
     @Override
     public void start(Stage primaryStage) {
@@ -130,9 +121,6 @@ public class GUI_freier_Modus extends Application {
 	     // Erstellen einer VBox, um buttonBox, Separator und eingabeBox vertikal anzuordnen
 	     VBox topBox = new VBox(10); // Abstand zwischen den Boxen
 	     topBox.getChildren().addAll(buttonBox, separator, eingabeBox);
-	     
-	     //Padding von Topbox
-	     topBox.setPadding(new Insets(10));
 
 	  // Einbinden der VBox in das Layout oben in der root
 	     root.setTop(topBox);
@@ -226,9 +214,6 @@ public class GUI_freier_Modus extends Application {
                 alert.showAndWait();
             } else {
             	
-            	//Textfelder schließen
-            	circle_builder.schliesseAlleEingabefelder(root);
-            	
             	//darw modus beenden
             	draw_relations.set(false);
     	        
@@ -271,16 +256,15 @@ public class GUI_freier_Modus extends Application {
                 e.printStackTrace();
             }
         });
-       
+        
+        
+
+
+
+      
 
         //################################Starten der Szene###############
-        
-        // Bildschirmgröße holen
-        screenBounds = Screen.getPrimary().getVisualBounds();
-        total_screen_width = screenBounds.getWidth();
-        total_screen_height = screenBounds.getHeight()-10;
-        
-        Scene scene = new Scene(root,  total_screen_width- 100, total_screen_height  -100);
+        Scene scene = new Scene(root, 1100, 600);
         primaryStage.setTitle("Erstelle ein eigenes Transitionssystem und eine eigene CTL-Formel");
         primaryStage.setScene(scene);
         primaryStage.show();
