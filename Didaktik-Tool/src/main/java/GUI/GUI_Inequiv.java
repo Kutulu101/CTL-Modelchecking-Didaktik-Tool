@@ -3,6 +3,7 @@ package GUI;
 import CTL_Backend.Transitionssystem;
 import CTL_Backend.Zustand;
 import CTL_Backend.Zustandsformel;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
@@ -13,11 +14,13 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedList;
 
 public class GUI_Inequiv extends GUI_zeichen_modus {
 
@@ -85,15 +88,25 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
                 secondCircle = null;
                 firstCircle_label = null;
                 secondCircle_label = null;
-                for(SidebarHandler sidebar:sidebar_handler_list) {
+                
+                
+                for(SidebarHandler sidebar:this.sidebar_handler_list) {
                 	sidebar.removeSidebar();
-                }
+                }  
+                
                 for(Arrow_Builder arrow_builder:arrow_builder_list) {
                 	arrow_builder.clearRelations();
                 }
+                
+                
                 for(Circle_Group_Builder circle_builder:circlebuilder_liste) {
                 	circle_builder.clearCircleGroups();
                 }
+                
+                this.arrow_builder_list = new LinkedList<>();
+                this.sidebar_handler_list = new LinkedList<>();
+                this.circlebuilder_liste = new LinkedList<>();
+                this.pane_list = new LinkedList<>();
                 inputActive = false;
                 
                 // Stage schließen
@@ -126,40 +139,51 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
 	    	    }
 	     });
 	
-	  // Erstellen der HBox für Label und Textfeld und Begrenzung auf 400 Pixel Breite
+	     //Erstellen der HBox für Label und Textfeld und Begrenzung auf 400 Pixel Breite
 	     HBox eingabeBox = new HBox(10); // Abstand zwischen Label und Textfeld
 	     eingabeBox.getChildren().addAll(label, eingabeFeld);
 	     eingabeBox.setPrefWidth(400); // Begrenzung der Breite auf 400 Pixel
+	     eingabeBox.setAlignment(Pos.CENTER);
 
-       VBox gesamte_box = new VBox(10);
-       gesamte_box.getChildren().addAll(main_button_box,eingabeBox);
-
+       VBox gesamte_box = new VBox(30);
+       gesamte_box.getChildren().addAll(selectedFormulaLabel,main_button_box,eingabeBox);
+       
+       //Setze Padding
+       gesamte_box.setPadding(new Insets(10));
         
 
         // Listener für ComboBox-Auswahl
         comboBox.setOnAction(e -> {
             selectedFormula = comboBox.getSelectionModel().getSelectedItem();
             if (selectedFormula != null) {
-                selectedFormulaLabel.setText("Zeichne ein Transitionssysteme, welches die linke Gleichung erfüllt, aber nicht die Rechte: \n" + selectedFormula);
+                selectedFormulaLabel.setText("Zeichne ein Transitionssysteme, welches die linke Gleichung erfüllt, aber nicht die Rechte: "+ selectedFormula);
+                selectedFormulaLabel.setAlignment(Pos.CENTER);
                 root.getChildren().remove(comboBoxContainer);//entferne die Combobox
-                root.setTop(selectedFormulaLabel); // Setze das Label oben
+                root.setTop(gesamte_box); // Setze das Label oben
                 root.setBottom(createDrawingPaneContainer()); // Setze die Zeichenflächen unten
-                root.setCenter(gesamte_box);
             }
         });
         
         //Berechne ob eine Zustandsformel erfüllt wird und die zweite nicht
         btnprüfen.setOnAction(event -> {
+        	
+        	//eingabefelder schließen
+        	this.circlebuilder_liste.get(0).schliesseAlleEingabefelder(root);
+        	
+        	draw_relations.set(false);
+        	
             Zustandsformel zustandsformel_links = new Zustandsformel(selectedFormula.split(" ≡ ")[0]);
             Zustandsformel zustandsformel_rechts =new Zustandsformel(selectedFormula.split(" ≡ ")[1]);
             
-            //erstelle einen zweiten Sidebarhandler
-            sidebar_handler_list.add(new SidebarHandler(this.circlebuilder_liste.get(0)));
+            //erstelle zwei Sidebar Handler Sidebarhandler
+            this.sidebar_handler_list.add(new SidebarHandler(this.circlebuilder_liste.get(0)));
+            this.sidebar_handler_list.add(new SidebarHandler(this.circlebuilder_liste.get(0)));
+            
             
             
             Transitionssystem ts = new Transitionssystem(arrow_builder_list.get(0).getList_of_relations());
-            sidebar_handler_list.get(0).createReducedSidebarRight(pane_list.get(0), zustandsformel_rechts, ts,200);
-            sidebar_handler_list.get(1).createReducedSidebarLeft(pane_list.get(0), zustandsformel_links, ts,400);
+            this.sidebar_handler_list.get(0).createReducedSidebarRight(this.pane_list.get(0), zustandsformel_rechts, ts,200);
+            this.sidebar_handler_list.get(1).createReducedSidebarLeft(this.pane_list.get(0), zustandsformel_links, ts,400);
             
            HashSet<Zustand> lösungsmenge_rechts = (HashSet<Zustand>) zustandsformel_rechts.get_Lösungsmenge(ts);
            HashSet<Zustand> lösungsmenge_links = (HashSet<Zustand>) zustandsformel_links.get_Lösungsmenge(ts);
@@ -193,20 +217,22 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
         //ComboBox hinzufügen
         root.setCenter(comboBoxContainer); // Platzierung der VBox in der Mitte
 
-        // Szene erstellen und Stage anzeigen
-        Scene scene = new Scene(root, 1000, 620);
-        primaryStage.setTitle("Zeichenmodus");
-     // Größenbindung für dynamische Anpassung im Vollbildmodus
-        root.prefWidthProperty().bind(scene.widthProperty());
-        root.prefHeightProperty().bind(scene.heightProperty());
+        // Bildschirmgröße holen
+        screenBounds = Screen.getPrimary().getVisualBounds();
+        total_screen_width = screenBounds.getWidth();
+        total_screen_height = screenBounds.getHeight()-10;
         
+        // Szene erstellen und Stage anzeigen
+        Scene scene = new Scene(root, total_screen_width, total_screen_height);
+        primaryStage.setTitle("CTL-Inequivalenzen");
+     
         primaryStage.setScene(scene);
         primaryStage.show();
     }
     
     protected HBox createDrawingPaneContainer() {
     	
-        drawingPane1 = createDrawingPane("Zeichenfläche",900,500);
+        drawingPane1 = createDrawingPane("Zeichenfläche 1",(total_screen_width-100),total_screen_height - 200);
 
         this.pane_list.add(drawingPane1);
         

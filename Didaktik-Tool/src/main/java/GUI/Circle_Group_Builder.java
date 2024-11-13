@@ -9,8 +9,11 @@ import CTL_Backend.Zustand;
 import javafx.application.Application;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.event.ActionEvent;
 import javafx.scene.Group;
 import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.control.TextField;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
@@ -155,6 +158,23 @@ public class Circle_Group_Builder {
             // Wenn es eine Gruppe ist, durchlaufe die Kinder
             for (Node child : ((Group) node).getChildren()) {
                 colorAllCircles(child);  // rekursive Methode aufrufen
+            }
+        }
+    }
+    
+    //rekursive Mehtode doie alle Textfeld schließt
+    public void schliesseAlleEingabefelder(Parent parent) {
+        for (Object node : parent.getChildrenUnmodifiable()) {
+            if (node instanceof TextField) {
+            	TextField textField = (TextField) node;
+                
+                // Wenn ein OnAction-Handler gesetzt ist, diesen explizit aufrufen
+                if (textField.getOnAction() != null) {
+                    textField.getOnAction().handle(new ActionEvent());
+                }
+            } else if (node instanceof Parent) {
+                // Rekursiv weiter in der Baumstruktur suchen, falls es sich um ein Container-Node handelt
+                schliesseAlleEingabefelder((Parent) node);
             }
         }
     }

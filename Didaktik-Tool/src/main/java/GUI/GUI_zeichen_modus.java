@@ -3,12 +3,12 @@ package GUI;
 import CTL_Backend.Transitionssystem;
 import CTL_Backend.Zustand;
 import CTL_Backend.Zustandsformel;
-import CTL_Backend.erfüllende_Mengen;
 import javafx.application.Application;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
@@ -25,6 +25,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.scene.paint.Color;
 
@@ -39,6 +40,10 @@ public class GUI_zeichen_modus extends Application {
 	private String selectedFormula;
 	protected AnchorPane drawingPane1;
 	private AnchorPane drawingPane2;
+	Rectangle2D screenBounds;
+	protected double total_screen_width;
+	protected double total_screen_height;
+	
 	
 	public GUI_zeichen_modus(boolean via_main) {
 		
@@ -150,6 +155,11 @@ public class GUI_zeichen_modus extends Application {
                 	circle_builder.clearCircleGroups();
                 }
                 
+                this.pane_list = new LinkedList<>();
+                arrow_builder_list = new LinkedList<Arrow_Builder>();
+                sidebar_handler_list = new LinkedList<SidebarHandler>();
+                circlebuilder_liste = new LinkedList<Circle_Group_Builder>();
+                
                 
                 inputActive = false;
                 
@@ -187,30 +197,40 @@ public class GUI_zeichen_modus extends Application {
 	     HBox eingabeBox = new HBox(10); // Abstand zwischen Label und Textfeld
 	     eingabeBox.getChildren().addAll(label, eingabeFeld);
 	     eingabeBox.setPrefWidth(400); // Begrenzung der Breite auf 400 Pixel
+	     eingabeBox.setAlignment(Pos.CENTER);
 
-        VBox gesamte_box = new VBox(10);
-        gesamte_box.getChildren().addAll(main_button_box,eingabeBox);
-
+        VBox gesamte_box = new VBox(30);
+        gesamte_box.getChildren().addAll(selectedFormulaLabel,main_button_box,eingabeBox);
+        
+        //Setze Padding
+        gesamte_box.setPadding(new Insets(10));
+        
         // Listener für ComboBox-Auswahl
         comboBox.setOnAction(e -> {
             selectedFormula = comboBox.getSelectionModel().getSelectedItem();
             if (selectedFormula != null) {
                 selectedFormulaLabel.setText("Zeichne zwei Transitionssysteme von denen eins die CTL-Formel: " + selectedFormula + " erfüllen soll und eins nicht");
                 root.getChildren().remove(comboBoxContainer);//entferne die Combobox
-                root.setTop(selectedFormulaLabel); // Setze das Label oben
+                root.setTop(gesamte_box); // Setze das Label oben
                 root.setBottom(createDrawingPaneContainer()); // Setze die Zeichenflächen unten
-                root.setCenter(gesamte_box);
             }
         });
         
         //Berechung für beide Panes
         btnprüfen.setOnAction(event -> {
+        	
+        	draw_relations.set(false);
+        	
             Zustandsformel zustandsformel = new Zustandsformel(selectedFormula);
             
             List<HashSet<Zustand>> ergebnisListe = new LinkedList<>();
             
             // Für alle Transitionensysteme berechnen und Ergebnisse speichern
             for (int i = 0; i < pane_list.size(); i++) {
+            	
+            	this.circlebuilder_liste.get(i).schliesseAlleEingabefelder(root);
+            	
+            	sidebar_handler_list.add(new SidebarHandler(this.circlebuilder_liste.get(i)));
                 Transitionssystem ts = new Transitionssystem(arrow_builder_list.get(i).getList_of_relations());
                 sidebar_handler_list.get(i).createReducedSidebarRight(pane_list.get(i), zustandsformel, ts,200);
               //färben
@@ -259,37 +279,24 @@ public class GUI_zeichen_modus extends Application {
 
         //ComboBox hinzufügen
         root.setCenter(comboBoxContainer); // Platzierung der VBox in der Mitte
-
-        // Szene erstellen und Stage anzeigen
-        Scene scene = new Scene(root, 1000, 600);
-        primaryStage.setTitle("Zeichenmodus");
-     // Größenbindung für dynamische Anpassung im Vollbildmodus
-        root.prefWidthProperty().bind(scene.widthProperty());
-        root.prefHeightProperty().bind(scene.heightProperty());
-
-        // Vollbild-Modus-Anpassung
-        primaryStage.fullScreenProperty().addListener((obs, wasFullScreen, isNowFullScreen) -> {
-        	
-        	//ACHTUNG: wird nciht getriggert
-            if (isNowFullScreen) {
-                drawingPane1.prefWidthProperty().bind(scene.widthProperty().multiply(0.4));
-                drawingPane2.prefWidthProperty().bind(scene.widthProperty().multiply(0.4));
-            } else {
-                drawingPane1.prefWidthProperty().unbind();
-                drawingPane2.prefWidthProperty().unbind();
-                drawingPane1.setPrefWidth(450);
-                drawingPane2.setPrefWidth(450);
-            }
-        });
         
+     // Bildschirmgröße holen
+        screenBounds = Screen.getPrimary().getVisualBounds();
+        total_screen_width = screenBounds.getWidth();
+        total_screen_height = screenBounds.getHeight()-10;
+        
+        // Szene erstellen und Stage anzeigen
+        Scene scene = new Scene(root, total_screen_width, total_screen_height);
+        primaryStage.setTitle("Zeichenmodus");
+     
         primaryStage.setScene(scene);
         primaryStage.show();
     }
 
     // Methode zur Erstellung der Zeichenflächen mit Trennlinie
     protected HBox createDrawingPaneContainer() {
-        drawingPane1 = createDrawingPane("Zeichenfläche 1",450,500);
-        drawingPane2 = createDrawingPane("Zeichenfläche 2",450,500);
+        drawingPane1 = createDrawingPane("Zeichenfläche 1",(total_screen_width-100)/2,total_screen_height - 200);
+        drawingPane2 = createDrawingPane("Zeichenfläche 2",(total_screen_width-100)/2,total_screen_height -200);
         
         this.pane_list.add(drawingPane1);
         this.pane_list.add(drawingPane2);
@@ -301,14 +308,12 @@ public class GUI_zeichen_modus extends Application {
     }
 
     // Methode zur Erstellung einer Zeichenfläche mit Beschriftung
-    AnchorPane createDrawingPane(String labelText, int paneWidth, int paneHeight) {
+    AnchorPane createDrawingPane(String labelText, double d, double f) {
 
         // Erstelle einen Circle_Builder und Arrow Builder
         Arrow_Builder arrow_builder = new Arrow_Builder();
         Circle_Group_Builder circle_builder = new Circle_Group_Builder(arrow_builder);
-        SidebarHandler sidebar_handler = new SidebarHandler(circle_builder);
         this.circlebuilder_liste.add(circle_builder);
-        this.sidebar_handler_list.add(sidebar_handler);
         this.arrow_builder_list.add(arrow_builder);
 
         // Haupt-Paneel zur Zeichnung
@@ -391,7 +396,7 @@ public class GUI_zeichen_modus extends Application {
 
         // AnchorPane zur Platzierung der Komponenten
         AnchorPane root = new AnchorPane();
-        root.setPrefSize(paneWidth, paneHeight);
+        root.setPrefSize(d, f);
 
         // Positionieren der Komponenten in AnchorPane
         AnchorPane.setTopAnchor(buttonBox, 10.0);
