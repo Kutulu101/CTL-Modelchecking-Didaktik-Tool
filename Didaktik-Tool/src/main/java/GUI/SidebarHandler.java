@@ -97,7 +97,7 @@ public class SidebarHandler {
         Button button3 = createToggleButton("Zeige Formelbaum komplett", "Formelbaum ausblenden", (button) -> {
             isFormulaTreeCompleteVisible = !isFormulaTreeCompleteVisible;
             if (this.formel_baum_pane == null) {
-                this.zeige_schritt_für_schritt_lösung(root, -100, 0,500);
+                this.bringe_formelbaum_auf_pane(root, -100, 0,500);
             } else {
                 this.formel_baum_pane.setVisible(isFormulaTreeCompleteVisible);
                 this.formel_baum_pane.setManaged(isFormulaTreeCompleteVisible); 
@@ -248,61 +248,53 @@ public class SidebarHandler {
     }
 
 
+
    
 
- private void zeige_schritt_für_schritt_lösung(Pane root,int pos_x_des_baumes,int pos_ydes_baumes,int x_offset) {
-        
-    	this.formel_baum_pane = this.ctl_baum.zeichneBaum(pos_x_des_baumes,pos_ydes_baumes);
-        
-        if (root instanceof BorderPane) {
-        	
-            // Wenn root ein BorderPane ist, die HBox im oberen Bereich verwenden
-        	HBox hbox = null;
-        	VBox vbox = (VBox)((BorderPane) root).getTop();
-        	if (vbox.getChildren().size() > 1) {
-        	    hbox = (HBox) vbox.getChildren().get(2);
-        	    // Hier können Sie hbox weiterverarbeiten
-        	} else {
-        	    // Hier behandeln Sie den Fall, dass nicht genügend Kinder vorhanden sind
-        	}
-        	
-            
-            if (hbox == null) {
-                throw new IllegalStateException("Im oberen Bereich wird eine HBox erwartet.");
-            }
-            
-            // Koordinaten der HBox ermitteln
-            Bounds hboxBounds = hbox.localToScene(hbox.getBoundsInLocal());
-            double hboxBottomY = hboxBounds.getMaxY();  // Unterkante der HBox
-            
-            // Setze die Position von formel_baum_pane relativ zur HBox
-            formel_baum_pane.setLayoutY(hboxBottomY + 30);  // 30 Pixel unter der HBox
-            formel_baum_pane.setLayoutX(hboxBounds.getMinX()+x_offset);  // Gleiche X-Position wie HBox
  
-            // Füge die formel_baum_pane zum root hinzu
-            root.getChildren().add(formel_baum_pane);           
-            formel_baum_pane.toFront();
-  
-        } else {
-            // Füge formel_baum_pane dem root hinzu
-            root.getChildren().add(formel_baum_pane);
-            
-            // Setze die Position in der Mitte von root
-            formel_baum_pane.setTranslateX((root.getWidth() - formel_baum_pane.getWidth()) / 2);
-            formel_baum_pane.setTranslateY(50);
-            
-            formel_baum_pane.toFront(); // Damit das Baum-Pane im Vordergrund bleibt
-        }
+    
+ private void bringe_formelbaum_auf_pane(Pane root,int pos_x_des_baumes,int pos_ydes_baumes,int x_offset) {
         
-        //Setzt sidebar nahc ganz vorne
-        if(this.sidebar_right!=null) {
-        	this.sidebar_right.toFront();
-        }
-        if(this.sidebar_left!= null) {
-        	this.sidebar_left.toFront();
-        }
- }
+	    this.formel_baum_pane = this.ctl_baum.zeichneBaum(pos_x_des_baumes, pos_ydes_baumes);
+	    placeFormulaPane(root, x_offset);
+	    bringSidebarsToFront();
+	}
 
+	private void placeFormulaPane(Pane root, int x_offset) {
+	    if (root instanceof BorderPane) {
+	        HBox hbox = extractHBoxFromBorderPaneTop(root);
+	        if (hbox == null) {
+	            throw new IllegalStateException("Im oberen Bereich wird eine HBox erwartet.");
+	        }
+	        
+	        Bounds hboxBounds = hbox.localToScene(hbox.getBoundsInLocal());
+	        formel_baum_pane.setLayoutY(hboxBounds.getMaxY() + 30);  // 30 Pixel unter der HBox
+	        formel_baum_pane.setLayoutX(hboxBounds.getMinX() + x_offset);  // Gleiche X-Position wie HBox
+	    } else {
+	        formel_baum_pane.setTranslateX((root.getWidth() - formel_baum_pane.getWidth()) / 2);
+	        formel_baum_pane.setTranslateY(50);
+	    }
+
+	    root.getChildren().add(formel_baum_pane);
+	    formel_baum_pane.toFront();
+	}
+
+	private HBox extractHBoxFromBorderPaneTop(Pane root) {
+	    VBox vbox = (VBox) ((BorderPane) root).getTop();
+	    if (vbox != null && vbox.getChildren().size() > 1) {
+	        return (HBox) vbox.getChildren().get(2);
+	    }
+	    return null;
+	}
+
+	private void bringSidebarsToFront() {
+	    if (this.sidebar_right != null) {
+	        this.sidebar_right.toFront();
+	    }
+	    if (this.sidebar_left != null) {
+	        this.sidebar_left.toFront();
+	    }
+	}
 
     private StackPane create_reducedSidebar(Zustandsformel zustandsformel, AnchorPane root, Transitionssystem ts,int x_offset){
         this.ctl_baum = new CTL_Formel_Baum(zustandsformel.getStart_der_rekursiven_Definition(), ts);
@@ -313,6 +305,11 @@ public class SidebarHandler {
         local_sidebar .setSpacing(20);
         local_sidebar .setMaxHeight(200);
         local_sidebar .setMaxWidth(200);
+        
+        // Füge den String zustandsformel.toString() oben in der Sidebar hinzu
+        Label formulaLabel = new Label(zustandsformel.getFormel_string());
+        formulaLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 14;"); // Anderer Grauton und Schriftgröße anpassen
+
 
         Button button2 = createToggleButton("Färbe erfüllende Zustände", "Farbe zurücksetzen", (button) -> {
             is_colored = !is_colored;
@@ -325,7 +322,8 @@ public class SidebarHandler {
         Button button3 = createToggleButton("Zeige Formelbaum", "Formelbaum ausblenden", (button) -> {
             isFormulaTreeCompleteVisible = !isFormulaTreeCompleteVisible;
             if (this.formel_baum_pane == null) {
-                this.zeige_schritt_für_schritt_lösung(root, -100, 0,x_offset);
+
+                this.bringe_formelbaum_auf_pane(root, -100, 0,x_offset);
             } else {
                 this.formel_baum_pane.setVisible(isFormulaTreeCompleteVisible);
                 this.formel_baum_pane.setManaged(isFormulaTreeCompleteVisible); 
