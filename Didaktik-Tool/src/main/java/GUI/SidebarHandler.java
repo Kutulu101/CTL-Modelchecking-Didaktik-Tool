@@ -310,7 +310,6 @@ public class SidebarHandler {
         Label formulaLabel = new Label(zustandsformel.getFormel_string());
         formulaLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 14;"); // Anderer Grauton und Schriftgröße anpassen
 
-
         Button button2 = createToggleButton("Färbe erfüllende Zustände", "Farbe zurücksetzen", (button) -> {
             is_colored = !is_colored;
             button.setText(is_colored ? "Farbe zurücksetzen" : "Färbe erfüllende Zustände");
@@ -322,7 +321,6 @@ public class SidebarHandler {
         Button button3 = createToggleButton("Zeige Formelbaum", "Formelbaum ausblenden", (button) -> {
             isFormulaTreeCompleteVisible = !isFormulaTreeCompleteVisible;
             if (this.formel_baum_pane == null) {
-
                 this.bringe_formelbaum_auf_pane(root, -100, 0,x_offset);
             } else {
                 this.formel_baum_pane.setVisible(isFormulaTreeCompleteVisible);
