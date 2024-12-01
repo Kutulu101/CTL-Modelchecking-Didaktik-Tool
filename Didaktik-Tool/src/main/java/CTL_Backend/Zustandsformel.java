@@ -191,16 +191,6 @@ public class Zustandsformel {
 	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Regel 6: Ersetze psi∨gamma mit ¬(¬psi∧¬gamma)"));
 	        }
 	        
-	        // Ausgabe der Änderungen in der Konsole für Debugging-Zwecke
-            if (ersetzungen.size() != 0 && !changed) {
-            	for(Umformung ersetzung:ersetzungen) {
-	            	//System.out.println("-------------------------");
-	            	//System.out.println(ersetzung.getErsetzt_mit_regel_nummer());
-	            	//System.out.println("Vor dieser Änderung: " + ersetzung.getVor_der_Ersetzung());
-	                //System.out.println("Nach dieser Änderung: " + ersetzung.getNach_der_Ersetzung());
-	                //System.out.println("-------------------------");
-            	}
-            }
 	    } while (changed);  // Wiederhole, solange Änderungen vorgenommen wurden
 	 }
 
@@ -547,7 +537,7 @@ public class Zustandsformel {
 	    final String FORMELENDE_NUR_WENN_ZUSTANDSFORMEL = "Die Formeleingabe kann nur mit einer korrekten Zustandsformel beendet werden";
 	    final String FORMELENDE_NUR_WENN_KLAMMERN_OFFEN = "Die Formeleingabe kann nur mit beendet werden, wenn glecih viele öffnende und schließende Klammern vorhanden sind"+ "\n\n";
 	    final String UNTIL_NUR_WENN_ZUSTANDSFORMEL = "U kann nur nach einer korrekten Zustandsformel eingesetzt werden";
-	    
+	    String UNTIL_NUR_MIT_QUANTOR = "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n";
 	    // Ursprungszustand herstellen
 	    for (String symbol : this.all_symbols) {
 	        this.gruendeFuerNichteinlesbareSymbole.put(symbol, "");
@@ -641,23 +631,32 @@ public class Zustandsformel {
 	        this.gruendeFuerNichteinlesbareSymbole.put("□", VOR_PFADOPERATOR);
 	    }
 	    
-	    // Until nur wenn Zustandsformel
-	    if (!(this.ist_Zustandsformel(this.formel_string, 0))) {
-	        this.gruendeFuerNichteinlesbareSymbole.put("U", UNTIL_NUR_WENN_ZUSTANDSFORMEL + " "+ last_checked_Formular+ "\n\n");
-	    }
-	    
-	    // Formelende nur wenn Zustandsformel
-	    if (!(this.ist_Zustandsformel(this.formel_string, 0))) {
-	        this.gruendeFuerNichteinlesbareSymbole.put("Formelende", FORMELENDE_NUR_WENN_ZUSTANDSFORMEL + " "+ this.fehlerbeschreibung+ "\n\n");
-	        this.fehlerbeschreibung = "";
-	    }
-	    
-	    if(this.counter_normale_klammern != 0) {
-	    	this.gruendeFuerNichteinlesbareSymbole.put("Formelende", FORMELENDE_NUR_WENN_KLAMMERN_OFFEN);
-	    }
+	      if (!this.formel_string.contains("∃") && !this.formel_string.contains("∀")) {
+	          this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n");
+	       } else {
+	          int indexEoA = Math.max(this.formel_string.indexOf("∃"), this.formel_string.indexOf("∀"));
+	          System.out.println("EoA at: " + indexEoA);
+	          if (indexEoA != -1) {
+	             String zustandsformelTeil = this.formel_string.substring(indexEoA + 1).trim();
+	             if (!this.ist_Zustandsformel(zustandsformelTeil, 0)) {
+	                this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur nach einer korrekten Zustandsformel eingelesen werden\n\n " + this.last_checked_Formular + "\n\n");
+	             }
+	          } else {
+	             this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n");
+	          }
+	       }
 
-	    return this.gruendeFuerNichteinlesbareSymbole;
-	}
+	       if (!this.ist_Zustandsformel(this.formel_string, 0)) {
+	          this.gruendeFuerNichteinlesbareSymbole.put("Formelende", "Die Formeleingabe kann nur mit einer korrekten Zustandsformel beendet werden " + this.fehlerbeschreibung + "\n\n");
+	          this.fehlerbeschreibung = "";
+	       }
+
+	       if (this.counter_normale_klammern != 0) {
+	          this.gruendeFuerNichteinlesbareSymbole.put("Formelende", "Die Formeleingabe kann nur mit beendet werden, wenn glecih viele öffnende und schließende Klammern vorhanden sind\n\n");
+	       }
+
+	       return this.gruendeFuerNichteinlesbareSymbole;
+	    }
 	
 	 public void ein_char_einlesen(String eingelesenesSymbol) {
 

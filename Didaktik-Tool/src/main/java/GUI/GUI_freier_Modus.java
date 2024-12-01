@@ -1,320 +1,236 @@
-package GUI;
+   package GUI;
 
-
-
+import CTL_Backend.Transitionssystem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import CTL_Backend.Transitionssystem;
-
-
 import javafx.application.Application;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
+import javafx.geometry.Rectangle2D;
+import javafx.scene.Group;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.HBox;
-import javafx.beans.value.ChangeListener;
-import javafx.geometry.Orientation;
-import javafx.scene.Scene;
-import javafx.scene.Group;
-import javafx.scene.Node;
-import javafx.scene.control.Button;
 import javafx.scene.input.MouseEvent;
-import javafx.stage.Stage;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Alert.AlertType;
-import javafx.scene.text.*;
-
+import javafx.scene.text.Text;
+import javafx.stage.Screen;
+import javafx.stage.Stage;
 
 public class GUI_freier_Modus extends Application {
-	
-	public GUI_freier_Modus(boolean via_main) {
-		this.opened_via_Main_menu = via_main;
-	}
-	
-	
-	//ob zum Hauptmenü zurückgekehrt werden soll
-    boolean opened_via_Main_menu = false;
-	
-    //ermöglicht das einzeichenen von Relationen
-	private BooleanProperty draw_relations = new SimpleBooleanProperty(false);
-	
-	//Merker zum Verwalten der Relationseinzeichnung, durch anklicken
-    private Circle firstCircle = null;
-    private Circle secondCircle = null;
-    private Text firstCircle_label = null;
-    private Text secondCircle_label = null;
-    
-    //blockiert Eingaben
-    private boolean inputActive = false;
-    
-  //Array zur Speicherung der Vorauswahltransition
-    private List<String> vorauswahl_transitionen;
-    
-    // Erstelle ein Behälter für die Combo und Labelboxen mit den CTL Symbolen
-    HBox FormelBox = new HBox(10);
-    
-    //erstelle einen Circle_Builder und Arrow Builder
-    private Arrow_Builder arrow_builder = new Arrow_Builder();
-    private Circle_Group_Builder circle_builder = new Circle_Group_Builder(arrow_builder);
-    private Combobox_Handler combobox_handler = new Combobox_Handler(FormelBox);
-    private SidebarHandler sidebar_handler = new SidebarHandler(circle_builder);
-	
-    @Override
-    public void start(Stage primaryStage) {
-    	
-    	
-    	//########Layout erstellen################
-    	// Erstelle das Hauptlayout
-        BorderPane root = new BorderPane();
+   boolean opened_via_Main_menu = false;
+   private BooleanProperty draw_relations = new SimpleBooleanProperty(false);
+   private Circle firstCircle = null;
+   private Circle secondCircle = null;
+   private Text firstCircle_label = null;
+   private Text secondCircle_label = null;
+   private boolean inputActive = false;
+   private List<String> vorauswahl_transitionen;
+   HBox FormelBox = new HBox(10.0D);
+   private Arrow_Builder arrow_builder = new Arrow_Builder();
+   private Circle_Group_Builder circle_builder;
+   private Combobox_Handler combobox_handler;
+   private SidebarHandler sidebar_handler;
+   Rectangle2D screenBounds;
+   protected double total_screen_width;
+   protected double total_screen_height;
 
-        // Erstelle einen Pane für das Drag and Drop
-        Pane drawingPane = new Pane();
-        drawingPane.setStyle("-fx-background-color: lightgray;"); // Hintergrundfarbe für das freie Feld
-        root.setCenter(drawingPane);
-    	
-    	
-        // Erstelle eine HBox für die Buttons
-        HBox buttonBox = new HBox(10);
-        Button btnAddCircle = new Button("Zustand hinzufügen");
-        Button btnRelation = new Button("Transitionen einzeichnen");
-        Button btnUndocomboBox = new Button("Undo Formeleingabe");
-        Button btnTS_entfernen = new Button("aktuelles TS löschen");
-        Button btnBerechnen = new Button("Berechne Lösungsmengen");
-        Button btnNeustart = new Button("Programm Neustarten");
-        Button btnBeenden = new Button("Programm beenden");
-        buttonBox.getChildren().addAll(btnAddCircle,btnRelation,btnUndocomboBox,btnTS_entfernen,btnBerechnen,btnNeustart, btnBeenden);
-        
-        
-	     // Vorauswahl der Transitionen für das Transitionssystem
-	     // Label und Textfeld erstellen
-	     Label label = new Label("Transitionen vorauswählen (getrennt durch Komma): ");
-	     TextField eingabeFeld = new TextField();
-	
-	     // Textfeld-Eingabe beibehalten und in Array aufteilen
-	     ((javafx.scene.control.TextField) eingabeFeld).textProperty().addListener((observable, oldValue, newValue) -> {
-	    	    if (!newValue.isEmpty()) {
-	    	        vorauswahl_transitionen = new ArrayList<>(Arrays.asList(newValue.split(",")));
-	    	    } else {
-	    	        vorauswahl_transitionen = new ArrayList<>(); // Leere Liste zuweisen
-	    	    }
-	     });
-	
-	  // Erstellen der HBox für Label und Textfeld und Begrenzung auf 400 Pixel Breite
-	     HBox eingabeBox = new HBox(10); // Abstand zwischen Label und Textfeld
-	     eingabeBox.getChildren().addAll(label, eingabeFeld);
-	     eingabeBox.setPrefWidth(400); // Begrenzung der Breite auf 400 Pixel
+   public GUI_freier_Modus(boolean via_main) {
+      this.circle_builder = new Circle_Group_Builder(this.arrow_builder);
+      this.combobox_handler = new Combobox_Handler(this.FormelBox);
+      this.sidebar_handler = new SidebarHandler(this.circle_builder);
+      this.opened_via_Main_menu = via_main;
+   }
 
-	     // Erstellen eines Separators (Linie) zwischen buttonBox und eingabeBox
-	     Separator separator = new Separator();
-	     separator.setOrientation(Orientation.HORIZONTAL); // Horizontale Linie
+   public void start(Stage primaryStage) {
+      BorderPane root = new BorderPane();
+      Pane drawingPane = new Pane();
+      drawingPane.setStyle("-fx-background-color: lightgray;");
+      root.setCenter(drawingPane);
+      HBox buttonBox = new HBox(10.0D);
+      Button btnAddCircle = new Button("Zustand hinzufügen");
+      Button btnRelation = new Button("Transitionen einzeichnen");
+      Button btnUndocomboBox = new Button("Undo Formeleingabe");
+      Button btnTS_entfernen = new Button("aktuelles TS löschen");
+      Button btnBerechnen = new Button("Berechne Lösungsmengen");
+      Button btnNeustart = new Button("Programm Neustarten");
+      Button btnBeenden = new Button("Programm beenden");
+      buttonBox.getChildren().addAll(btnAddCircle, btnRelation, btnUndocomboBox, btnTS_entfernen, btnBerechnen, btnNeustart, btnBeenden);
+      Label label = new Label("Transitionen vorauswählen (getrennt durch Komma): ");
+      TextField eingabeFeld = new TextField();
+      eingabeFeld.textProperty().addListener((observable, oldValue, newValue) -> {
+         if (!newValue.isEmpty()) {
+            this.vorauswahl_transitionen = new ArrayList(Arrays.asList(newValue.split(",")));
+         } else {
+            this.vorauswahl_transitionen = new ArrayList();
+         }
 
-	     // Erstellen einer VBox, um buttonBox, Separator und eingabeBox vertikal anzuordnen
-	     VBox topBox = new VBox(10); // Abstand zwischen den Boxen
-	     topBox.getChildren().addAll(buttonBox, separator, eingabeBox);
+      });
+      HBox eingabeBox = new HBox(10.0D);
+      eingabeBox.getChildren().addAll(label, eingabeFeld);
+      eingabeBox.setPrefWidth(400.0D);
+      Separator separator = new Separator();
+      separator.setOrientation(Orientation.HORIZONTAL);
+      VBox topBox = new VBox(10.0D);
+      topBox.getChildren().addAll(buttonBox, separator, eingabeBox);
+      topBox.setPadding(new Insets(10.0D));
+      root.setTop(topBox);
+      this.combobox_handler.handle_first_combobox(root);
+      this.draw_relations.addListener((observable, oldValue, newValue) -> {
+         this.firstCircle = null;
+         this.secondCircle = null;
+         this.firstCircle_label = null;
+         this.secondCircle_label = null;
+         if (this.draw_relations.get()) {
+            btnRelation.setText("Einzeichnen Beenden");
+            root.lookupAll(".circle_with_text").forEach((node) -> {
+               Group group = (Group)node;
+               if (group.getChildren().get(0) instanceof Circle) {
+                  ((Circle)group.getChildren().get(0)).setFill(Color.YELLOW);
+               }
 
-	  // Einbinden der VBox in das Layout oben in der root
-	     root.setTop(topBox);
-	     
-        
-        //Erstellen der Comboboxen für die Formeleingabe
-        combobox_handler.handle_first_combobox(root);
-        
-        //############################Registrieren der Events##########################
-        
-        // Listener hinzufügen, um Änderungen an drawRelations zu überwachen
-        draw_relations.addListener((observable, oldValue, newValue) -> {
-            // Hier wird der Code ausgeführt, wenn drawRelations geändert wird
-            firstCircle = null;
-            secondCircle = null;
-            firstCircle_label = null;
-            secondCircle_label = null;
-            
-            if (draw_relations.get()) {
-                // Wenn draw_relations aktiviert ist: Button-Text ändern und Kreise gelb färben
-                btnRelation.setText("Einzeichnen Beenden");
+            });
+         } else {
+            btnRelation.setText("Einzeichnen Starten");
+            root.lookupAll(".circle_with_text").forEach((node) -> {
+               Group group = (Group)node;
+               if (group.getChildren().get(0) instanceof Circle) {
+                  ((Circle)group.getChildren().get(0)).setFill(Color.BLUE);
+               }
 
-                // Alle Nodes mit der Klasse ".circle_with_text" durchsuchen und gelb färben
-                root.lookupAll(".circle_with_text").forEach(node -> {
-                    Group group = (Group) node;
-                    if (group.getChildren().get(0) instanceof Circle) {
-                        ((Circle) group.getChildren().get(0)).setFill(Color.YELLOW);
-                    }
-                });
-            } else {
-                // Wenn draw_relations deaktiviert ist: Button-Text zurücksetzen und Kreise blau färben
-                btnRelation.setText("Einzeichnen Starten");
+            });
+         }
 
-                // Alle Nodes mit der Klasse ".circle_with_text" durchsuchen und blau färben
-                root.lookupAll(".circle_with_text").forEach(node -> {
-                    Group group = (Group) node;
-                    if (group.getChildren().get(0) instanceof Circle) {
-                        ((Circle) group.getChildren().get(0)).setFill(Color.BLUE);
-                    }
-                });
-            }
-            
-        });
-        
-        // Funktion zum Beenden des Programms
-        btnBeenden.setOnAction(e -> {
-        	if(this.opened_via_Main_menu) {
-        		Stage stage = new Stage();
-                GUI_Main main_menu = new GUI_Main();
-                main_menu.start(stage);
-        	}
-        	primaryStage.close();
-        });
-        
-        //Funkiton zum löschen des gezeichnet TS
-        btnTS_entfernen.setOnAction(event -> {
-            // Alle Kinder (Formen) vom Pane entfernen und Referenzen löschen
-            drawingPane.getChildren().clear();
-            circle_builder.clearCircleGroups();
-            arrow_builder.clearRelations();
-            this.sidebar_handler.removeSidebar();
-        });
-       
-        // Funktion zum Hinzufügen eines Kreises, enthält Erstellung,Beschriftung, Pfeile
-        btnAddCircle.setOnAction(e -> {
-        	Group created_circle = circle_builder.create_circle_with_text(draw_relations);//erzeugt eine Gruppe aus Kreis und Beschriftungsfeld
-        	created_circle.setOnMouseClicked(event -> handleCircleClick(event, arrow_builder)); //füge das anklicken der Gruppe als Event hinzu
-	        drawingPane.getChildren().add(created_circle); // Füge den Kreis zum Pane hinzu
-	        draw_relations.set(false);
-	        circle_builder.colorAllCircles(drawingPane);
-	        btnRelation.setText("Transtionenen einzeichnen");
-	        this.sidebar_handler.removeSidebar();
-        });
-        
-        btnRelation.setOnAction(e -> {
-            // Toggle für draw_relations
-            draw_relations.set(!draw_relations.get());
-            this.sidebar_handler.removeSidebar();
-        });
+      });
+      btnBeenden.setOnAction((e) -> {
+         if (this.opened_via_Main_menu) {
+            Stage stage = new Stage();
+            GUI_Main main_menu = new GUI_Main();
+            main_menu.start(stage);
+         }
 
-        
-        //Funktion zum berechnen der Normalform und der Lösungsmenge
-        btnBerechnen.setOnAction(event -> {
-            // 1. Prüfen, ob die Formel mit "Formelende" endet
-            if (!combobox_handler.getZustandsformel().getFormel_string().endsWith("Formelende")) {
-                // Wenn nein, zeigen wir eine MessageBox an
-                Alert alert = new Alert(AlertType.WARNING);
-                alert.setTitle("Warnung");
-                alert.setHeaderText(null);
-                alert.setContentText("Bitte erst Formelende einlesen.");
-                alert.showAndWait();
-            } else {
-            	
-            	//darw modus beenden
-            	draw_relations.set(false);
-    	        
-    	        //Sidebar hinzufügen
-    	        Transitionssystem transsitionssystem = new Transitionssystem(arrow_builder.getList_of_relations());
-    	        sidebar_handler.createSidebar(FormelBox,combobox_handler.get_transformed_Zustandsformel(),root,transsitionssystem);
-    	        root.requestLayout();  // Layout erzwingen
-    	        
-            }
-        });
-        
-        //Undo für die Combobox
-        btnUndocomboBox.setOnAction(event -> {
-        		combobox_handler.undo_combobox();
-        		this.sidebar_handler.removeSidebar();
+         primaryStage.close();
+      });
+      btnTS_entfernen.setOnAction((event) -> {
+         drawingPane.getChildren().clear();
+         this.circle_builder.clearCircleGroups();
+         this.arrow_builder.clearRelations();
+         this.sidebar_handler.removeSidebar();
+      });
+      btnAddCircle.setOnAction((e) -> {
+         Group created_circle = this.circle_builder.create_circle_with_text(this.draw_relations);
+         created_circle.setOnMouseClicked((event) -> {
+            this.handleCircleClick(event, this.arrow_builder);
+         });
+         drawingPane.getChildren().add(created_circle);
+         this.draw_relations.set(false);
+         this.circle_builder.colorAllCircles(drawingPane);
+         btnRelation.setText("Transtionenen einzeichnen");
+         this.sidebar_handler.removeSidebar();
+      });
+      btnRelation.setOnAction((e) -> {
+         this.draw_relations.set(!this.draw_relations.get());
+         this.sidebar_handler.removeSidebar();
+      });
+      btnBerechnen.setOnAction((event) -> {
+         Alert alert;
+         if (!this.combobox_handler.getZustandsformel().getFormel_string().endsWith("Formelende")) {
+            alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Berechnung verweigert");
+            alert.setHeaderText((String)null);
+            alert.setContentText("Bitte erst Formelende einlesen.");
+            alert.showAndWait();
+         } else if (this.combobox_handler.checkIfRed()) {
+            alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Berechnung verweigert");
+            alert.setHeaderText((String)null);
+            alert.setContentText("Die Eingegeben Formel entspricht nicht der CTL-Syntax");
+            alert.showAndWait();
+         } else if (this.combobox_handler.isStackEmpty()) {
+            alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Berechnung verweigert");
+            alert.setHeaderText((String)null);
+            alert.setContentText("Es wurde kein Symbol eingegeben, die CTL-Formel ist ungültig");
+            alert.showAndWait();
+         } else {
+            this.circle_builder.schliesseAlleEingabefelder(root);
+            this.draw_relations.set(false);
+            Transitionssystem transsitionssystem = new Transitionssystem(this.arrow_builder.getList_of_relations());
+            this.sidebar_handler.createSidebar(this.FormelBox, this.combobox_handler.get_transformed_Zustandsformel(), root, transsitionssystem);
+            root.requestLayout();
+         }
 
-        });
-        
-        //Button zum Neustarten
-        btnNeustart.setOnAction(event -> {
-            try {
-                // Alle Daten und GUI-Elemente zurücksetzen
-                draw_relations.set(false);
-                firstCircle = null;
-                secondCircle = null;
-                firstCircle_label = null;
-                secondCircle_label = null;
-                arrow_builder.clearRelations();
-                circle_builder.clearCircleGroups();
-                combobox_handler.clear_combobox_handler();
-                inputActive = false;
-                
-                // Stage schließen
-                primaryStage.close();
-                
-                // Neuen Stage erstellen und initialisieren
-                Stage newStage = new Stage();
-                start(newStage);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-        
-        
+      });
+      btnUndocomboBox.setOnAction((event) -> {
+         this.combobox_handler.undo_combobox();
+         this.sidebar_handler.removeSidebar();
+      });
+      btnNeustart.setOnAction((event) -> {
+         try {
+            this.draw_relations.set(false);
+            this.firstCircle = null;
+            this.secondCircle = null;
+            this.firstCircle_label = null;
+            this.secondCircle_label = null;
+            this.arrow_builder.clearRelations();
+            this.circle_builder.clearCircleGroups();
+            this.combobox_handler.clear_combobox_handler();
+            this.inputActive = false;
+            primaryStage.close();
+            Stage newStage = new Stage();
+            this.start(newStage);
+         } catch (Exception var4) {
+            var4.printStackTrace();
+         }
 
+      });
+      this.screenBounds = Screen.getPrimary().getVisualBounds();
+      this.total_screen_width = this.screenBounds.getWidth();
+      this.total_screen_height = this.screenBounds.getHeight() - 10.0D;
+      Scene scene = new Scene(root, this.total_screen_width - 100.0D, this.total_screen_height - 100.0D);
+      primaryStage.setTitle("Erstelle ein eigenes Transitionssystem und eine eigene CTL-Formel");
+      primaryStage.setScene(scene);
+      primaryStage.show();
+   }
 
+   private void handleCircleClick(MouseEvent event, Arrow_Builder arrow_builder) {
+      if (this.draw_relations.get() && !this.inputActive) {
+         Group clickedGroup = (Group)event.getSource();
+         Circle clickedCircle = (Circle)clickedGroup.getChildren().get(0);
+         Text clickedCircle_label = (Text)clickedGroup.getChildren().get(1);
+         Pane parentPane = (Pane)clickedGroup.getParent();
+         if (this.firstCircle == null) {
+            this.firstCircle = clickedCircle;
+            this.firstCircle_label = clickedCircle_label;
+            clickedCircle.setFill(Color.YELLOW);
+         } else if (this.secondCircle == null) {
+            this.secondCircle = clickedCircle;
+            this.secondCircle_label = clickedCircle_label;
+            clickedCircle.setFill(Color.YELLOW);
+            this.inputActive = true;
+            arrow_builder.drawArrow(parentPane, this.firstCircle, this.secondCircle, this.firstCircle_label, this.secondCircle_label, this.vorauswahl_transitionen);
+            this.firstCircle = null;
+            this.secondCircle = null;
+            this.firstCircle_label = null;
+            this.secondCircle_label = null;
+            this.inputActive = false;
+         }
+      }
 
-      
+   }
 
-        //################################Starten der Szene###############
-        Scene scene = new Scene(root, 1100, 600);
-        primaryStage.setTitle("Erstelle ein eigenes Transitionssystem und eine eigene CTL-Formel");
-        primaryStage.setScene(scene);
-        primaryStage.show();
-    }
-    
-    //Methode zum behandeln des Kreis anklickens (zeichnet Relationen ein), wurde nciht in Circle_Group_Builder ausgelagert weil das Speciher der Klick-Reihenfolge, nur von der GUi gehandelt werden kann
-    private void handleCircleClick(MouseEvent event, Arrow_Builder arrow_builder) {
-        
-    	if (draw_relations.get() && !inputActive) { // nur wenn im Relation-Zeichnen Modus 
-            Group clickedGroup = (Group) event.getSource();
-            Circle clickedCircle = (Circle) clickedGroup.getChildren().get(0);
-            Text clickedCircle_label = (Text) clickedGroup.getChildren().get(1);
-
-            // Extrahiere das übergeordnete Pane
-            Pane parentPane = (Pane) clickedGroup.getParent();
-
-            if (firstCircle == null) {
-                // Speichere den ersten Kreis
-                firstCircle = clickedCircle;
-                firstCircle_label = clickedCircle_label;
-                clickedCircle.setFill(Color.YELLOW);
-            } else if (secondCircle == null) {
-                // Speichere den zweiten Kreis und zeichne den Pfeil
-                secondCircle = clickedCircle;
-                secondCircle_label = clickedCircle_label;
-                clickedCircle.setFill(Color.YELLOW);
-                
-               	//Guard damit nicht andere Kreise angeklickt werden können
-               	inputActive = true;
-                
-               	//Zeichnet den Pfeil für Relation ein
-                arrow_builder.drawArrow(parentPane,firstCircle,secondCircle,firstCircle_label,secondCircle_label,this.vorauswahl_transitionen); // Übergabe des Pane an die Methode
-                
-                // Setze die Kreise zurück, um weitere Pfeile zeichnen zu können
-                //setzt die Kreise zurück:                 
-                firstCircle = null;
-                secondCircle = null;
-                firstCircle_label = null;
-                secondCircle_label = null;
-                
-                //gibt wieder frei
-                inputActive = false;
-            }
-        }
-    	
-    }
-    
-        
-
-    public static void main(String[] args) {
-        launch(args);
-    }
+   public static void main(String[] args) {
+      launch(args);
+   }
 }

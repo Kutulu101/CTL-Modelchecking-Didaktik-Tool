@@ -1,5 +1,6 @@
 package GUI;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Stack;
@@ -251,4 +252,24 @@ public class Combobox_Handler {
         eingabeComboboxRef.set(null);
         this.formelbox.getChildren().clear();
     }
+    
+    public boolean checkIfRed() {
+        Iterator var1 = this.historyStack.iterator();
+
+        String style;
+        do {
+           if (!var1.hasNext()) {
+              return false;
+           }
+
+           Node node = (Node)var1.next();
+           style = node.getStyle();
+        } while(style == null || !style.contains("-fx-background-color: red;"));
+
+        return true;
+     }
+
+     public boolean isStackEmpty() {
+        return this.historyStack.isEmpty();
+     }
 }
