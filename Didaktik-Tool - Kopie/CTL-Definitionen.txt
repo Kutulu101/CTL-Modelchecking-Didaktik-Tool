@@ -1,0 +1,19 @@
+1:x |= 1 ist eine Zustandsformel, gilt stets.//
+0:0 = ¬1 ist eine Zustandsformel die Die stets falsche Aussage.//
+[:x |= [A′]φ ist eine Zustandsformel die gilt, falls für alle Übergänge x a −→ x′ mit a ∈ A′ gilt: x′ |= φ.//
+]:x |= [A′]φ ist eine Zustandsformel die gilt, falls für alle Übergänge x a −→ x′ mit a ∈ A′ gilt: x′ |= φ.//
+∧:x |= φ ∧ ψ ist eine Zustandsformel die gilt, falls x |= φ und x |= ψ gelten.//
+¬:x |= ¬φ ist eine Zustandsformel die gilt, falls x 6 |= φ.//
+(:x |= (φ) ist eine Zustandsformel die gilt, falls x |= φ.//
+):x |= (φ) ist eine Zustandsformel die gilt, falls x |= φ.//
+∨: φ ∨ ψ = ¬(¬φ ∧ ¬ψ): x |= φ ∨ ψ ist eine Zustandsformel die gilt, falls x |= φ oder x |= ψ, also falls mindestens einer der beiden Ausdrücke wahr ist.//
+〈:〈A′〉φ = ¬[A′]¬φ: Die Aussage x |= 〈A′〉φ bedeutet, dass es mindestens einen Nachfolger x a−→ x′ mit a ∈ A und x′ |= φ geben muss.//
+〉:〈A′〉φ = ¬[A′]¬φ: Die Aussage x |= 〈A′〉φ bedeutet, dass es mindestens einen Nachfolger x a−→ x′ mit a ∈ A und x′ |= φ geben muss.//
+U: P |= φUψ ist eine Pfadformel die gilt, falls es auf P einen Zustand z′ gibt, so dass z′ |= ψ und auf allenvorherigen Zuständen z gilt z |= φ. In z′ muss nicht mehr gelten z′ |= φ.//
+∀:z |= ∀p ist eine Zustandsformel die gilt, falls auf allen maximalen Pfaden P in (Z, A, →) die in z beginnen gilt P |= p.//
+∃:z |= ∃p ist eine Zustandsformel die gilt, falls es einen maximalen Pfad P in (Z, A, →) gibt, der in z beginnt und es gilt P |= p.//
+◇:P |= ◇φ ist eine Pfadformel mit der Bedeutung: Auf dem Pfad gilt mindestens ein Mal φ.//
+○:P |= ○φ ist eine Pfadformel mit der Bedeutung: Im nächsten Zustand gilt φ.//
+□:P |= □φ ist eine Pfadformel mit der Bedeutung: Auf dem Pfad gilt immer φ.//
+Transition eingeben: ermöglicht die Eingabe einer Transition, geschweifte Klammern werden automatisch erzeugt.//
+Formelende: ermöglicht das Überprüfen der Formel mit dem CTL-Modelchecking Algorithmus.//
