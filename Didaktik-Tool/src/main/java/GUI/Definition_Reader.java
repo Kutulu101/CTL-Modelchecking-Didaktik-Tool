@@ -6,7 +6,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-
+//Klasse die das Einlesen der Definitonen der Symbole über die mitgelieferten .txt Datein verwaltet
 public class Definition_Reader {
 	
 	public String getDefinitionForSymbol(String symbol, String source_name, String not_found_string) {
@@ -14,8 +14,6 @@ public class Definition_Reader {
         // Hole das aktuelle Arbeitsverzeichnis
         String currentDir = System.getProperty("user.dir");
         File file = new File(currentDir + "/" + source_name); // Datei relativ zum Verzeichnis der JAR
-        
-        //System.out.println("Versuche, die Datei zu laden von: " + file.getAbsolutePath());
         
         // Fallback für Ressourcen innerhalb des JARs
         if (!file.exists()) {
@@ -76,8 +74,9 @@ public class Definition_Reader {
                 }
             }
         }
-
-        String definition = currentDefinition.toString().trim(); // Entferne unnötige Leerzeichen und Zeilenumbrüche am Ende
+        
+     // Entferne unnötige Leerzeichen und Zeilenumbrüche am Ende
+        String definition = currentDefinition.toString().trim(); 
         return definition.isEmpty() ? not_found_string : definition;
     }
 }

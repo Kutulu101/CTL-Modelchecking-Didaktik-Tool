@@ -1,5 +1,6 @@
    package CTL_Backend;
 
+ //Klasse zum speichern der unternommen Umformungsschritte bei der Umformung einer CTL-Gleichung in Normalform
 public class Umformung {
    private String vor_der_Ersetzung;
    private String nach_der_Ersetzung;

@@ -9,6 +9,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import CTL_Backend.Zustandsformel;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.event.Event;
+import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -33,12 +35,12 @@ public class Combobox_Handler {
     
     //Zustandsformel
     private Zustandsformel zustandsformel = new Zustandsformel ("");
-    
     private Definition_Reader defintion_reader = new Definition_Reader();
     
-    //Hbox 
+    //Hbox für die Aufnahme der Comboboxen und der Labels
     HBox formelbox;
 	
+    //Konstruktor kennt HBox die in Eingaben in GUI anzeigt
 	public Combobox_Handler(HBox formelbox){
 		this.formelbox = formelbox;
 	}
@@ -47,12 +49,14 @@ public class Combobox_Handler {
 		return zustandsformel;
 	}
     
+    //Gibt die Zustandsformel gewandelt in Rekursive Form zurück
     public Zustandsformel get_transformed_Zustandsformel() {
     	zustandsformel.turn_to_normal_form();
     	zustandsformel.turn_string_into_recursive_ctl();
 		return zustandsformel;
 	}
     
+    //Methode die den Umgang mit der ersten Combobox auf der GUI beschreibt
     public void handle_first_combobox(BorderPane root) {
         // Erstelle ein Label für den Text
         Label textLabel = new Label("Formel eingeben:");
@@ -67,6 +71,7 @@ public class Combobox_Handler {
         this.configureComboBox(eingabeCombobox,this.getZustandsformel().einlesbare_Symbole());
         historyStack.push(eingabeCombobox);
         this.formelbox.getChildren().add(eingabeCombobox);
+        this.formelbox.setPadding(new Insets(10.0));
         
         // Ereignisbehandlung für die ComboBox
         eingabeCombobox.setOnAction(this::handleComboBoxAction);
@@ -78,27 +83,30 @@ public class Combobox_Handler {
         root.setBottom(this.formelbox);
     }
     
-	public void  handleComboBoxAction(javafx.event.ActionEvent event) {
+    //MEthode die getriggert wird wenn eine Eingabe in ComboBox bemacht wird
+	public void handleComboBoxAction(Event event) {
     	
     	ComboBox<String> sourceComboBox = (ComboBox<String>) event.getSource();
     	String entered_symbol;
     	
         // Überprüfe, ob die ausgewählte Option "Transition eingeben" ist
         if ("Transition eingeben".equals(sourceComboBox.getValue())) {
+        	//Öffnet Eingabefeld
         	entered_symbol = Character.toString(read_transition("Bitte die gewünschte Transition eingeben"));
         }
         else {entered_symbol = (String) sourceComboBox.getValue();}
         
-     // Tooltip für das ausgewählte Item extrahieren
+        //Tooltip für das ausgewählte Item extrahieren
         Tooltip selectedTooltip = new Tooltip(zustandsformel.einlesbare_Symbole().get(entered_symbol));
         
-        zustandsformel.ein_char_einlesen(entered_symbol);
-        System.out.println(zustandsformel.getFormel_string());
-        replaceComboBoxWithTextField(entered_symbol,selectedTooltip);        
+        //NAch dem Einlesen der Eingabe soll Label erzeugt werden und 
+        this.replaceComboBoxWithTextField(entered_symbol,selectedTooltip);
+        this.zustandsformel.ein_char_einlesen(entered_symbol);
     }
-    
- private char read_transition(String headline){
-        
+
+	//Methode die InputBox öffnet und das Einlesen einer Transition ermöglicht
+	 private char read_transition(String headline){
+	        
         // Öffne eine Input-Box (TextInputDialog) für die Eingabe eines Charakters
         TextInputDialog dialog = new TextInputDialog();
         dialog.setTitle("Transition Eingabe");
@@ -113,11 +121,9 @@ public class Combobox_Handler {
             if (input.length() == 1) {
                 // Wenn ein einzelner Charakter eingegeben wurde, verarbeite ihn
                 char enteredChar = input.charAt(0);
-                System.out.println("Eingegebener Charakter: " + enteredChar);
                 return enteredChar; // Rückgabe des gültigen Zeichens
             } else {
                 // Falls der Benutzer mehr als einen Charakter eingibt
-                System.out.println("Bitte nur einen einzelnen Charakter eingeben.");
                 return read_transition("Bitte nur einen Charakter eingeben!"); // Rekursiver Aufruf mit neuer Nachricht
             }
         } else {
@@ -126,45 +132,62 @@ public class Combobox_Handler {
             return '\0'; // Rückgabewert, der anzeigt, dass keine gültige Eingabe gemacht wurde
         }
     }
-
+	 
+	 //Methode die ComboBox entfernt, eingelesenen Char in Label darstellt, und neue Combobox erzeugt
     private void replaceComboBoxWithTextField(String enteredSymbol, Tooltip tooltip) {
 
+    	//entfernt alte Combobox über AtomicRef
         ComboBox<String> oldComboBox = eingabeComboboxRef.get();
         if (oldComboBox != null) {
         	historyStack.pop();
             this.formelbox.getChildren().remove(oldComboBox); // Entferne die alte ComboBox
         }else {System.out.println("Combobox nicht gefunden");};
     	
+        //erzeugt Label
         Label textField = new Label();
         textField.setText(enteredSymbol);
      
-        // Tooltip für das Label erstellen
-        Tooltip.install(textField, tooltip); // Tooltip auf das Label anwenden
+        //Färbe zu unrecht eingelesene Symbole rot
+        if (this.zustandsformel.einlesbare_Symbole().get(enteredSymbol) != "" && this.zustandsformel.getAll_symbols().contains(enteredSymbol)) {  	
+           textField.setStyle("-fx-background-color: red; -fx-text-fill: white;");
+           //Wenn Formelende falsch war dann wird letztes Label rot gefärbt
+           if (enteredSymbol == "Formelende" && !this.historyStack.isEmpty()) {
+              Node topElement = (Node)this.historyStack.peek();
+              if (topElement instanceof Label) {
+                 Label topTextLabel = (Label)topElement;
+                 topTextLabel.setStyle("-fx-background-color: red; -fx-text-fill: white;");
+              }
+           }
+        }
+        
+        //Tooltip auf Textfeld übertragen
+        Tooltip.install(textField, tooltip);
         
         //neue Combobox nur wenn nicht Formelende gelesen wurde 
         if(!(enteredSymbol.contains("Formelende"))){
+        	
+        	//erstelle neue ComboBox
 	        ComboBox<String> newComboBox = new ComboBox<>();
 	        configureComboBox(newComboBox,zustandsformel.einlesbare_Symbole());
 	        
+	        //Füge Label und ComboBox hinzu
 	        formelbox.getChildren().addAll(textField, newComboBox);
 	        
 	        // Füge das neue Label und die ComboBox zum Stack hinzu (beide sind vom Typ Node)
 	        historyStack.push(textField);
 	        historyStack.push(newComboBox);
 	        
-	        
 	        // neue Combobox an Event anhängen
 	        newComboBox.setOnAction(this::handleComboBoxAction);
 	
 	        // Update der Referenz auf die neue ComboBox
 	        eingabeComboboxRef.set(newComboBox);
-	        //System.out.println("Nach der " + i +  ". Eingabe: " +  eingabeComboboxRef);
         }
     }
     
 
       
-    
+    //Methode die ComboBox befüllt und mit ToolTips hinzufügt
     private void configureComboBox(ComboBox<String> comboBox, Map<String, String> gruende) {
         
         // Die Keys der Map als ObservableList für die ComboBox-Items verwenden
@@ -186,10 +209,11 @@ public class Combobox_Handler {
                             if (gruende.containsKey(symbol) && !"".equals(gruende.get(symbol))) {
                                 // Text und Hintergrund grau färben
                                 setStyle("-fx-text-fill: gray; -fx-background-color: lightgray;");
-                                
+                                String grund_nicht_einlesbar = zustandsformel.einlesbare_Symbole().get(symbol);
                                 // Tooltip mit dem Grund für die Ablehnung hinzufügen
-                                Tooltip tooltip = new Tooltip(zustandsformel.einlesbare_Symbole().get(symbol)+defintion_reader.getDefinitionForSymbol(symbol,"CTL-Definitionen.txt","Definition nicht gefunden") +"\n\n"+ defintion_reader.getDefinitionForSymbol(symbol,"CTL-Symboleumgangsprachlich.txt","" ));
+                                Tooltip tooltip = new Tooltip(grund_nicht_einlesbar+defintion_reader.getDefinitionForSymbol(symbol,"CTL-Definitionen.txt","Definition nicht gefunden") +"\n\n"+ defintion_reader.getDefinitionForSymbol(symbol,"CTL-Symboleumgangsprachlich.txt","" ));
                                 
+                                //TollTip hinzufügen
                                 setTooltip(tooltip);
                                 
                                 
@@ -208,43 +232,47 @@ public class Combobox_Handler {
         });
     }
       
- // Methode zum Rückgängig machen der letzten Eingabe, nur wenn mindestens 2 Elemente im Stack sind
+ // Methode zum Rückgängig machen der letzten Eingabe, entfernt letze Elemente und erzeugt neue Combobox
     public void undo_combobox() {
-        // Prüfen, ob genug Elemente im Stack vorhanden sind
-        if (historyStack.size() >= 2 || (historyStack.size() == 1 && historyStack.peek() instanceof Label)) {
-            
-            // Prüfen, ob das oberste Element im Stack eine ComboBox ist
-            if (historyStack.peek() instanceof ComboBox) {
-                // Entferne die letzte ComboBox vom Stack und aus der GUI
-                Node lastComboBox = historyStack.pop();
-                formelbox.getChildren().remove(lastComboBox);
-
-                // Entferne das letzte Label vom Stack und aus der GUI
-                Node lastLabel = historyStack.pop();
-                formelbox.getChildren().remove(lastLabel);
-            }
-            //##########Entferne das letzte Symbol aus der Zustandsformel, funktioniert noch nicht bei Transitionen
-            zustandsformel.entferneLetztenChar();
-            System.out.println("######### " + zustandsformel.getFormel_string());
-
-            // Neue leere ComboBox einfügen, um den Zustand vor der letzten Aktion wiederherzustellen
-            ComboBox<String> newComboBox = new ComboBox<>();
-            configureComboBox(newComboBox, zustandsformel.einlesbare_Symbole());
-
-            formelbox.getChildren().add(newComboBox);
-            historyStack.push(newComboBox);
-            newComboBox.setOnAction(this::handleComboBoxAction);
-
-            // Update der Referenz auf die neue ComboBox
-            eingabeComboboxRef.set(newComboBox);
-        } 
-
-        // Fallback für den Fall, dass nicht genug Elemente im Stack sind
-        else {
-            System.out.println("Nicht genug Elemente, um eine Rückgängig-Aktion durchzuführen.");
+    	//neue Combobox
+        ComboBox newComboBox;
+        
+        //Wenn Formelende letztes Label ist, kann keine Combobox oder Label entfernt werden
+        if (this.historyStack.size() < 2 && (this.historyStack.size() != 1 || !(this.historyStack.peek() instanceof Label))) {
+           if (this.zustandsformel.getFormel_string().endsWith("Formelende")) {
+        	  
+        	   //letzen char aus Formelentfernen
+              this.zustandsformel.entferneLetztenChar();
+              
+              //neue Combobox erzeugen
+              newComboBox = new ComboBox();
+              this.configureComboBox(newComboBox, this.zustandsformel.einlesbare_Symbole());
+              this.formelbox.getChildren().add(newComboBox);
+              this.historyStack.push(newComboBox);
+              newComboBox.setOnAction(this::handleComboBoxAction);
+              this.eingabeComboboxRef.set(newComboBox);  
+           } 
+           //Ansonsten müssen Combobox und Label entfernt werden
+        } else {
+           if (this.historyStack.peek() instanceof ComboBox) {
+              Node lastComboBox = (Node)this.historyStack.pop();
+              this.formelbox.getChildren().remove(lastComboBox);
+              Node lastLabel = (Node)this.historyStack.pop();
+              this.formelbox.getChildren().remove(lastLabel);
+           }
+           
+           //entferne den lezten Char aus der Zustandsformel
+           this.zustandsformel.entferneLetztenChar();
+           
+           //erzeuge neue ComboBox
+           newComboBox = new ComboBox();
+           this.configureComboBox(newComboBox, this.zustandsformel.einlesbare_Symbole());
+           this.formelbox.getChildren().add(newComboBox);
+           this.historyStack.push(newComboBox);
+           newComboBox.setOnAction(this::handleComboBoxAction);
+           this.eingabeComboboxRef.set(newComboBox);
         }
-       
-    }
+     }
     
     public void clear_combobox_handler() {
         zustandsformel = new Zustandsformel("");
@@ -253,22 +281,18 @@ public class Combobox_Handler {
         this.formelbox.getChildren().clear();
     }
     
+    //prüft ob ein Label auf Rot steht, also ob ein CTL-Symbol zu unrecht eingelesen wurde
     public boolean checkIfRed() {
-        Iterator var1 = this.historyStack.iterator();
+        for (Node node : this.historyStack) {
+            String style = node.getStyle();
+            if (style != null && style.contains("-fx-background-color: red;")) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-        String style;
-        do {
-           if (!var1.hasNext()) {
-              return false;
-           }
-
-           Node node = (Node)var1.next();
-           style = node.getStyle();
-        } while(style == null || !style.contains("-fx-background-color: red;"));
-
-        return true;
-     }
-
+    //prüft ob Stack mit Labels und Combobox leer ist
      public boolean isStackEmpty() {
         return this.historyStack.isEmpty();
      }

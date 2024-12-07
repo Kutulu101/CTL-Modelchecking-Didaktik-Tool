@@ -7,16 +7,22 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 
+//Klasse die Node-Box erweitert für alle erfüllenden Mengen die ihre Lösung durch Fixpunkt-Itteration bestimmen
 class NodeBox_with_detail_solution extends NodeBox {
+	
+	//erweitert um Button der aber zusammen mit StackPane auf extra Pane gelagert wird
     private Pane detail_toggle_pane_complete;
     private Button toggle_button_detail;
-
+    
+    //Konstruktor ruft erst super auf und erzeugt dann die Pane mit dem extra Button
     public NodeBox_with_detail_solution(erfüllende_Mengen data, String nodename, Transitionssystem ts, NodeBox parent) {
         super(nodename, data, ts, parent);
         this.detail_toggle_pane_complete = this.createToggleDetailSolution_Pane((detail_lösung) this.erfuellendeMenge);
     }
 
     private Pane createToggleDetailSolution_Pane(detail_lösung menge) {
+    	
+    	//Erzeuge und formatiere neuen Button
         Button toggleButton = new Button("+");
         toggleButton.setStyle("-fx-background-color: #ffffff; -fx-border-radius: 10px; -fx-background-radius: 10px; -fx-font-size: 7px; -fx-text-fill: black; -fx-min-width: 5px; -fx-min-height: 5px; -fx-border-color: black; -fx-border-width: 1px;");
         this.toggle_button_detail = toggleButton;
@@ -24,16 +30,19 @@ class NodeBox_with_detail_solution extends NodeBox {
         textBox.setWrapText(true);
         textBox.setStyle("-fx-background-color: #ffffff; -fx-padding: 10px; -fx-font-size: 10px;");
         
+        //Erzeuge und Formatiere ScrollPane die die Itterationsschritte enthält
         ScrollPane scrollPane = new ScrollPane(textBox);
         scrollPane.setPrefWidth(350.0);
         scrollPane.setFitToWidth(true);
         scrollPane.setVisible(false);
         
+        //Paltzieren der Elemente auf der Pane
         toggleButton.setTranslateX(70.0);
         toggleButton.setTranslateY(-10.0);
         scrollPane.setTranslateX(75.0);
         scrollPane.setTranslateY(-5.0);
         
+        //Registieren des Events zum Toogle der Sichtbarkeit von ScrollPane
         toggleButton.setOnAction(event -> {
             if (toggleButton.getText().equals("+")) {
                 toggleButton.setText("-");
@@ -44,15 +53,18 @@ class NodeBox_with_detail_solution extends NodeBox {
                 scrollPane.setVisible(false);
             }
         });
-
+        
+        //Sichtbarkeit am Anfang auf False setzen
         toggleButton.setVisible(false);
-
+        
+        //Erzeuge die Pane und füge die Elemente hinzu
         Pane container = new Pane();
         container.setPrefHeight(10.0);
         container.setPrefWidth(10.0);
         container.getChildren().add(this.stackpane);
         container.getChildren().addAll(scrollPane, toggleButton);
-
+        
+        //Listner auf StackPane setzten, damit sich die Pane und die Zusatzelemente selbstständig mit StackPane bewegen
         this.stackpane.translateXProperty().addListener((observable, oldValue, newValue) -> {
             toggleButton.setTranslateX(newValue.doubleValue() + 70.0);
             scrollPane.setTranslateX(newValue.doubleValue() + 75.0);
@@ -60,12 +72,13 @@ class NodeBox_with_detail_solution extends NodeBox {
 
         this.stackpane.translateYProperty().addListener((observable, oldValue, newValue) -> {
             toggleButton.setTranslateY(newValue.doubleValue() - 10.0);
-            scrollPane.setTranslateY(newValue.doubleValue() - 5.0);
+            scrollPane.setTranslateY(newValue.doubleValue() - 5.0);        
         });
 
         return container;
     }
-
+    
+    //Methoden zum ändern der Sichtbarkeit
     public void make_detail_toggle_button_visible() {
         this.toggle_button_detail.setVisible(true);
     }
@@ -77,14 +90,15 @@ class NodeBox_with_detail_solution extends NodeBox {
     public Pane getDetail_toggle_pane_complete() {
         return this.detail_toggle_pane_complete;
     }
-
-    public Bounds getRectanglebounds() {
+    
+    //Überschreiben der Super-Methode weil zwischen Rectangle und der höchsten Pane eine Pane mehr liegt als bei super
+    @Override 
+    public Bounds getRectangleBounds() {
         StackPane stackPane = (StackPane) this.rechteck.getParent();
         Pane containerPane = (Pane) stackPane.getParent();
         Pane parentPane = (Pane) containerPane.getParent();
         Bounds boundsInScene = this.rechteck.localToScene(this.rechteck.getBoundsInLocal());
-        Bounds boundsInParentPane = parentPane.sceneToLocal(boundsInScene);
-        return boundsInParentPane;
+        return parentPane.sceneToLocal(boundsInScene);
     }
 }
 

@@ -3,40 +3,50 @@ package CTL_Backend;
 import GUI.Relation;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Set;
 
+
+//Klasse die Transitionsysteme bestehend aus Zustanden repräsentiert
 public class Transitionssystem {
+	
+	//Set mir allen Zuständen
     private HashSet<Zustand> zustände = new HashSet<>();
+    //Set mit namen des Zustandes und dem Zustands-Objekt, um redundante Zustandsobjekte zu verhindern
     private HashMap<String, Zustand> zustandsMap = new HashMap<>();
-
+    
+    //Transitionssystem wird aus Relationen im Stringformat erzeugt z.B "z1 a z2"
     public Transitionssystem(HashSet<Relation> relationen) {
-        Iterator<Relation> var2 = relationen.iterator();
-
-        while (var2.hasNext()) {
-            Relation relation = var2.next();
+    	
+    	//durchlaufe alle Übergebenen Relationen
+        for(Relation relation :relationen) {
+        	//Zerteile String
             String detailsString = relation.getDetailsString();
             String[] parts = detailsString.split(" ");
             if (parts.length < 4) {
                 System.err.println("Ungültiges Format für Relation: " + detailsString);
             } else {
+            	
+            	//extrahiert die Namen der Zustände und erzeugt Übergangsobjekt
                 String ersterZustandName = parts[1];
                 Übergang transition = new Übergang(parts[2]);
                 String zweiterZustandName = parts[3];
+                
+                //erzeugt neuen Zustand oder sucht den Bestehenden Zustand aus HashMap über den Namen heraus
                 Zustand ersterZustand = this.getOrCreateZustand(ersterZustandName);
                 Zustand zweiterZustand = this.getOrCreateZustand(zweiterZustandName);
+                
+                //erzeugt die Relation zwischen den Zuständen als Objekt und speichert sie im ersten Zustand (abgehende Speicherung)
                 ZweiTuple<Übergang, Zustand> abgehendeRelation = new ZweiTuple<>(transition, zweiterZustand);
                 ersterZustand.addAbgehendeRelation(abgehendeRelation);
             }
         }
-
+        //Fügt alle Zusände zur Map hinzu
         this.zustände.addAll(this.zustandsMap.values());
     }
 
     private Zustand getOrCreateZustand(String name) {
         if (!this.zustandsMap.containsKey(name)) {
-            Zustand neuerZustand = new Zustand(name, new LinkedList<>(), true);
+            Zustand neuerZustand = new Zustand(name, new LinkedList<>());
             this.zustandsMap.put(name, neuerZustand);
         }
 
@@ -46,24 +56,10 @@ public class Transitionssystem {
     public HashSet<Zustand> getZustände() {
         return this.zustände;
     }
-
-    public Set<String> getZuständeasStrings() {
-        Set<String> namenSet = new HashSet<>();
-        Iterator<Zustand> var2 = this.zustände.iterator();
-
-        while (var2.hasNext()) {
-            Zustand zustand = var2.next();
-            namenSet.add(zustand.getName());
-        }
-
-        return namenSet;
-    }
-
+    
+    //Zum Debugging gibt Zustände auf Konsole aus
     public void printAllZustände() {
-        Iterator<Zustand> var1 = this.zustände.iterator();
-
-        while (var1.hasNext()) {
-            Zustand zustand = var1.next();
+       for(Zustand zustand : this.zustände) {
             zustand.printZustand();
         }
     }

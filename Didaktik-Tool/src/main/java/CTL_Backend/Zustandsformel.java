@@ -9,14 +9,24 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
 
-
+//Klasse dien ganze Zustandsformel repräsentiert und verwaltet
 public class Zustandsformel {
 	
+	//Zuszandsformel als String
 	private String formel_string = "";
+	//Zustandsformel in Normalform als String
 	private String formel_string_normal_form = "";
+	
+	//Zustandsformel ist rekursiv über die erfüllenden Mengen definiert
 	private erfüllende_Mengen Start_der_rekursiven_Definition;
+	
+	//efüllende Menge der gesamten Gleichung
 	private Set<Zustand> lösungsmenge = new HashSet<>();
+	
+	//Map die verwaltet welche Symbole aktuell über GUI zur CTL hinzugefügt werden können und welche warum ausgeschlossen werden
 	private Map<String, String> gruendeFuerNichteinlesbareSymbole;
+	
+	//Für das rekursive überprüfen ob CTL-Formel gültig ist
 	private String fehlerbeschreibung = "";
 	private String last_checked_Formular = "";
 	
@@ -24,20 +34,24 @@ public class Zustandsformel {
     int counter_normale_klammern = 0;
     int counter_spitze_klammern = 0;
     int counter_eckige_klammern = 0;
+    
+    //Liste die alle unternommenen Umformungen zur Normalform hin speichert
     private List<Umformung> ersetzungen;
     
+    //alle im Kurstext definierten Symbole
     HashSet<String> all_symbols = new HashSet<>(Arrays.asList(
             "∃", "∀", "◇", "○", "□", "U",
             "[", "]", "(", ")", "〈", "〉",
             "∧", "∨", "¬", "1","0", "Transition eingeben","Formelende"
         ));
     
+    //Konstruktor beginnt mit eingelesener Stringformel
+    
 	public Zustandsformel(String formel_string) {
-		
-		
+	
 		gruendeFuerNichteinlesbareSymbole = new HashMap<>();
 		
-	    //Map mit den Symbolen setze den Value auf ""  
+	    //Map mit den Symbolen setze den Value auf ""
         for (String symbol : this.all_symbols) {
             this.gruendeFuerNichteinlesbareSymbole.put(symbol, "");
         }
@@ -47,13 +61,14 @@ public class Zustandsformel {
             this.ein_char_einlesen(String.valueOf(ch));  // Cast von char zu String
         }
         
-        //String reinigen 
+        //String bereinigen für bessere Lesbarkeit
         this.formel_string = this.formel_string.replace(",", "");
         this.formel_string = this.formel_string.replace(" ", "");
        
 	}
-	
+	//Methode die CTL-Formel in Normalform bringt,
 	 public void turn_to_normal_form() {
+		 
 	    // Initialisiere formel_string_normal_form als formel_string
 	    this.formel_string_normal_form = this.formel_string;
 	    
@@ -62,12 +77,13 @@ public class Zustandsformel {
 	    
 	    boolean changed;
 	    
+	    //er wird geprüft ob ein nicht erlaubtes Symbol enthalten ist, falls ja wird dieses nach ersetzt und der Vorgang wiederholt bis kein unerlaubtes Symbol mehr enthalten ist
 	    do {
 	        changed = false;  // Schleifenbedingung: keine Änderungen zu Beginn
 	        
 	        String original = this.formel_string_normal_form;  // Original-String vor der Ersetzung
 	        
-	        // Wenn ∀○ enthalten ist, ersetze es durch ¬∃○¬
+	        //Regel 1: Wenn ∀○ enthalten ist, ersetze es durch ¬∃○¬
 	        if (this.formel_string_normal_form.contains("∀○")) {
 	            int index = this.formel_string_normal_form.indexOf("∀○");
 	            this.formel_string_normal_form = this.formel_string_normal_form.replace("∀○", "¬∃○¬");
@@ -110,7 +126,7 @@ public class Zustandsformel {
 	            }       
 	        }
 	        
-	        // Wenn ∀□ enthalten ist, ersetze mit ¬∃1U¬
+	        //Regel 3: Wenn ∀□ enthalten ist, ersetze mit ¬∃1U¬
 	        if (this.formel_string_normal_form.contains("∀□")) {
 	            int index = this.formel_string_normal_form.indexOf("∀□");
 	            this.formel_string_normal_form = this.formel_string_normal_form.replace("∀□", "¬∃1U¬");
@@ -118,7 +134,7 @@ public class Zustandsformel {
 	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Regel 3: Ersetze ∀□ mit ¬∃1U¬"));
 	        }
 	
-	        // Wenn ∃◇ enthalten ist, ersetze mit ∃1U
+	        //Regel 4: Wenn ∃◇ enthalten ist, ersetze mit ∃1U
 	        if (this.formel_string_normal_form.contains("∃◇")) {
 	            int index = this.formel_string_normal_form.indexOf("∃◇");
 	            this.formel_string_normal_form = this.formel_string_normal_form.replace("∃◇", "∃1U");
@@ -126,7 +142,7 @@ public class Zustandsformel {
 	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Regel 4: Ersetze ∃◇ mit ∃1U"));
 	        }
 	
-	        // Wenn ∀◇ enthalten ist, ersetze mit ¬∃□¬
+	        //Regel 5: Wenn ∀◇ enthalten ist, ersetze mit ¬∃□¬
 	        if (this.formel_string_normal_form.contains("∀◇")) {
 	            int index = this.formel_string_normal_form.indexOf("∀◇");
 	            this.formel_string_normal_form = this.formel_string_normal_form.replace("∀◇", "¬∃□¬");
@@ -193,9 +209,10 @@ public class Zustandsformel {
 	        
 	    } while (changed);  // Wiederhole, solange Änderungen vorgenommen wurden
 	 }
-
 	 
-	// Idee: Zustandsformel in kleinere Formeln  aufteilen an den Stellen 1 oder 0 oder E.....U--> erst alle Formel die auf 0 und 1 enden zusammenbauen, dannach die Formel mit den Verzwiegungen kombinieren
+	 //Methode die aus dem String die rekursive Definiton über erfüllende Mengen zusammenbaut
+	// Idee: Zustandsformel in kleinere Formeln  aufteilen z.B an den Stellen 1 oder 0 oder E.....U
+	 //--> erst alle Formel die auf 0 und 1 enden zusammenbauen, dannach die Formel mit den Verzwiegungen kombinieren
 	 public void turn_string_into_recursive_ctl() {
 		 
 	    // Wenn formel_string_normal_form leer ist, zuerst turn_to_normal_form() aufrufen
@@ -203,15 +220,18 @@ public class Zustandsformel {
 	        this.turn_to_normal_form();
 	    }
 	    
+	    //letzte erfüllende Menge muss gepseichert und übergeben werden
 	    erfüllende_Mengen letzte_erfüllende_Menge = null;
 
 	    
 	    // Ersetze "Formelende" mit einer leeren Zeichenfolge
 	    String bereinigterFormelString = formel_string_normal_form.replace("Formelende", "");
+	    
+	    //entferne geschweifte Klammern
 	    bereinigterFormelString = bereinigterFormelString.replace("{", "");
 	    bereinigterFormelString = bereinigterFormelString.replace("}", "");
 	    
-        // Splitte den String in 1 und 0 und ∃ (aber nur wenn ∃ zu einem U gehört) und (
+        // Splitte den String in 1 und 0 und ∃ (aber nur wenn ∃ zu einem U gehört) und ( auf
 	    List<String> liste_zustandformeln = new ArrayList<>(Arrays.asList(
 	    	    bereinigterFormelString.split("(?<=1)|(?<=0)|(?<=∃)(?![○□])|(?=\\()")
 	    	));
@@ -235,13 +255,13 @@ public class Zustandsformel {
 	    //abspeichern der Zeichen nach dem Split, sollte U oder UND , E oder Klammer sein um nachher leichter darauf zugreifen zu können
 	    List<Character> ersteZeichenNachSplit = new ArrayList<>(Collections.nCopies(liste_zustandformeln.size(), null));
 	   
-        
 	    //Liste zum abspeichern der einzelnen Startpunkte der gespiltteten erfüllenden Menge, gleiche Länge wie liste_zustandsformeln
 	    List<erfüllende_Mengen> startpunkte_erfüllende_mengen = new ArrayList<>(Collections.nCopies(liste_zustandformeln.size(), null)); // Liste vorinitialisieren
 
 	    
-	    // Durchlaufe jede Zustandsformel in der Liste
+	    // Durchlaufe jede Zustandsformel in der Liste um diese in erfüllende Mengen umzuwandeln
 	    for (int j = liste_zustandformeln.size() - 1; j >= 0; j--) {
+	    	
 	        String zustandsformel = liste_zustandformeln.get(j);
 	        
 	    	//Speichere das erste Zeichen ab, außer es ist eine schließende Kalmmer dann das zweite
@@ -352,7 +372,7 @@ public class Zustandsformel {
 	        	//füge den Startpunkt zur Liste hinzu
 	        	startpunkte_erfüllende_mengen.set(j,letzte_erfüllende_Menge);
 	        }
-	    
+	    //Zusammenbauen der bis jetzt extrhaieren erfüllenden Mengen
 	    //1. Geklammerte Ausdrücke müssen zuerst verbunden werden
 	    //Idee: Klammer Tiefe bestimmen, Therme nach Kalmmertiefe sortieren, Therm mit der größten Tiefe mit dem näcshten Verknüpfen und neu berechenen
 	    boolean haelt = true;
@@ -425,7 +445,7 @@ public class Zustandsformel {
         }
 	    
 	    
-	    //2. Verknüpfe die Mengen mit Verknüpfungszeichen mit einander von links nach rechts, 
+	    //2. Verknüpfe die Mengen mit Verknüpfungszeichen UND oder UNTIL mit einander von links nach rechts, 
 	    for(int i = 1; i< startpunkte_erfüllende_mengen.size();i++) {
 	        // Verknüpfungszeichen an der aktuellen Position holen
 	        char verknüpfungsChar = ersteZeichenNachSplit.get(i);
@@ -458,19 +478,21 @@ public class Zustandsformel {
 	        i--;
 	    	}
 	    
-	    	//3.Baue die unverknüpften von hinten nach vorne zusammen
-	    while(startpunkte_erfüllende_mengen.size() > 1) {
+	    	//3.Baue die verbleidenden unverknüpften erfüllenden Mengen, also Mengen die auf Null zeigen von hinten nach vorne zusammen
+	    while(startpunkte_erfüllende_mengen.size() > 1) {//Solange es mehr erfüllende Mengen gibt als 1 
+	    	
 	        int letzteIndex = startpunkte_erfüllende_mengen.size() - 1;
 	        erfüllende_Mengen aktuelle_menge_aus_liste = startpunkte_erfüllende_mengen.get(letzteIndex);
 
 	        // Finde die tiefste nicht verknüpfte Menge (die auf null zeigt)
 	        erfüllende_Mengen tiefste_menge = findeTiefsteMengeMitNull(startpunkte_erfüllende_mengen.get(letzteIndex - 1));
-
+	        
+	        //Unterscheidung ob ein oder zwei erfüllenden Mengen in der Definition vorkommen
 	        if (tiefste_menge instanceof Ast) {
 	            Ast ast_menge = (Ast) tiefste_menge;
 	            ast_menge.setInnere_Menge(aktuelle_menge_aus_liste); // Setze die innere Menge
 	            startpunkte_erfüllende_mengen.remove(aktuelle_menge_aus_liste);
-	        } else if (tiefste_menge instanceof Verzweigung) {
+	        } else if (tiefste_menge instanceof Verzweigung) {//Setzte die Rechte Menge
 	            Verzweigung verzweigung_menge = (Verzweigung) tiefste_menge;
 	            verzweigung_menge.setRechte_Seite(aktuelle_menge_aus_liste);
 	            startpunkte_erfüllende_mengen.remove(aktuelle_menge_aus_liste); 
@@ -481,6 +503,7 @@ public class Zustandsformel {
 	        
 	        this.Start_der_rekursiven_Definition = startpunkte_erfüllende_mengen.get(0);
 	    }
+	 
 	// Hilfsmethode, um die tiefste Menge zu finden, die noch nicht vollständig verknüpft ist
 	 private erfüllende_Mengen findeTiefsteMengeMitNull(erfüllende_Mengen menge) {
 	     
@@ -510,8 +533,7 @@ public class Zustandsformel {
 	     return menge;
 	 }	 
 	 
-	 
-	 
+	 //Methode zur Ausgabe der Lösungsmenge der CTL-Formel
 	public  Set<Zustand> get_Lösungsmenge(Transitionssystem ts){
 		if (this.Start_der_rekursiven_Definition == null){
 			this.turn_string_into_recursive_ctl();
@@ -520,7 +542,9 @@ public class Zustandsformel {
 		return this.lösungsmenge;
 	}
 	
+	//Methode die Verwaltet welche Symbole pber die GUI einglesen werden können
 	public Map<String, String> einlesbare_Symbole() {
+		
 	    // Konstanten für Fehlermeldungen
 	    final String KEINE_OEFFNENDE_KLAMMER = "Kann nicht eingelesen werden, da keine öffnende normale Klammer vorhanden ist." + "\n\n";
 	    final String KEINE_OEFFNENDE_SPITZE_KLAMMER = "Kann nicht eingelesen werden, da keine öffnende spitze Klammer vorhanden ist." + "\n\n";
@@ -538,6 +562,7 @@ public class Zustandsformel {
 	    final String FORMELENDE_NUR_WENN_KLAMMERN_OFFEN = "Die Formeleingabe kann nur mit beendet werden, wenn glecih viele öffnende und schließende Klammern vorhanden sind"+ "\n\n";
 	    final String UNTIL_NUR_WENN_ZUSTANDSFORMEL = "U kann nur nach einer korrekten Zustandsformel eingesetzt werden";
 	    String UNTIL_NUR_MIT_QUANTOR = "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n";
+	    
 	    // Ursprungszustand herstellen
 	    for (String symbol : this.all_symbols) {
 	        this.gruendeFuerNichteinlesbareSymbole.put(symbol, "");
@@ -631,33 +656,36 @@ public class Zustandsformel {
 	        this.gruendeFuerNichteinlesbareSymbole.put("□", VOR_PFADOPERATOR);
 	    }
 	    
-	      if (!this.formel_string.contains("∃") && !this.formel_string.contains("∀")) {
-	          this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n");
-	       } else {
-	          int indexEoA = Math.max(this.formel_string.indexOf("∃"), this.formel_string.indexOf("∀"));
-	          System.out.println("EoA at: " + indexEoA);
-	          if (indexEoA != -1) {
-	             String zustandsformelTeil = this.formel_string.substring(indexEoA + 1).trim();
-	             if (!this.ist_Zustandsformel(zustandsformelTeil, 0)) {
-	                this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur nach einer korrekten Zustandsformel eingelesen werden\n\n " + this.last_checked_Formular + "\n\n");
-	             }
-	          } else {
-	             this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n");
-	          }
-	       }
+	    // Man kann U nur einlesen wenn schon ein Quantor eingelsen wurde sonst immer Pfadfromel
+      if (!this.formel_string.contains("∃") && !this.formel_string.contains("∀")) {
+          this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n");
+       } else {
+          int indexEoA = Math.max(this.formel_string.indexOf("∃"), this.formel_string.indexOf("∀"));
+          System.out.println("EoA at: " + indexEoA);
+          if (indexEoA != -1) {
+             String zustandsformelTeil = this.formel_string.substring(indexEoA + 1).trim();
+             if (!this.ist_Zustandsformel(zustandsformelTeil, 0)) {
+                this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur nach einer korrekten Zustandsformel eingelesen werden\n\n " + this.last_checked_Formular + "\n\n");
+             }
+          } else {
+             this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n");
+          }
+       }
+      
+      //Formelende nur wenn gültige CTL-Formel
+       if (!this.ist_Zustandsformel(this.formel_string, 0)) {
+          this.gruendeFuerNichteinlesbareSymbole.put("Formelende", "Die Formeleingabe kann nur mit einer korrekten Zustandsformel beendet werden " + this.fehlerbeschreibung + "\n\n");
+          this.fehlerbeschreibung = "";
+       }
+       //Formelende nur wenn alle Klammern geschlossen sind
+       if (this.counter_normale_klammern != 0) {
+          this.gruendeFuerNichteinlesbareSymbole.put("Formelende", "Die Formeleingabe kann nur mit beendet werden, wenn glecih viele öffnende und schließende Klammern vorhanden sind\n\n");
+       }
 
-	       if (!this.ist_Zustandsformel(this.formel_string, 0)) {
-	          this.gruendeFuerNichteinlesbareSymbole.put("Formelende", "Die Formeleingabe kann nur mit einer korrekten Zustandsformel beendet werden " + this.fehlerbeschreibung + "\n\n");
-	          this.fehlerbeschreibung = "";
-	       }
-
-	       if (this.counter_normale_klammern != 0) {
-	          this.gruendeFuerNichteinlesbareSymbole.put("Formelende", "Die Formeleingabe kann nur mit beendet werden, wenn glecih viele öffnende und schließende Klammern vorhanden sind\n\n");
-	       }
-
-	       return this.gruendeFuerNichteinlesbareSymbole;
-	    }
+       return this.gruendeFuerNichteinlesbareSymbole;
+    }
 	
+	//Methode die die Einzenlen Chars einliest und an die CTL-Formel anfügt
 	 public void ein_char_einlesen(String eingelesenesSymbol) {
 
 		    // Wenn eine öffnende normale Klammer "(" eingelesen wird, erhöhe den Zähler
@@ -718,9 +746,10 @@ public class Zustandsformel {
 			}
 	 }
 	 	
-	 //Wird true wenn bisher einglesener String eine korrekte Zustandsformel ist, Bedingung für das Einlesen bestimmter Zeichen und das Formelende
+	 //Methode die prüft ob übergebner String eine Zustandsformel ist
 	 public boolean ist_Zustandsformel(String zu_prüfende_Formel, int tiefe) {
 		 
+		 //Schaltet Debugging Ausgaben ein oder aus
 		 boolean debug = false;
 		    // Ausgaben zur Nachverfolgung des aktuellen Aufrufs
 		    if (debug) printAufruf(tiefe, "Prüfe Formel: " + zu_prüfende_Formel);
@@ -734,15 +763,16 @@ public class Zustandsformel {
 		        return true;
 		    }
 
-		    // 1. Wenn "∃" oder "∀" gelesen wird
+		    // 1. Wenn "∃" oder "∀" gelesen wird, muss das folgende eine Pfadformel sein
 		    if (zu_prüfende_Formel.startsWith("∃") || zu_prüfende_Formel.startsWith("∀")) {
-		        if (debug) printAufruf(tiefe, "Gefunden: Quantor " + zu_prüfende_Formel.charAt(0));
+		        
+		    	if (debug) printAufruf(tiefe, "Gefunden: Quantor " + zu_prüfende_Formel.charAt(0));
 		        String rest = zu_prüfende_Formel.substring(1).trim();
-
+		        //NAch diesen Symbolen kommt wieder eine Zustandsformel die rekrusiv geprüft werden kann
 		        if (rest.startsWith("◇") || rest.startsWith("○") || rest.startsWith("□")) {
 		            return ist_Zustandsformel(rest.substring(1).trim(), tiefe + 1);
 		        }
-
+		        //Oder man findet ein U und prüft den linekn und rechten PArt ob es eine Zustandsformel ist
 		        int indexOfU = rest.indexOf("U");
 		        if (indexOfU != -1) {
 		            if (debug) printAufruf(tiefe, "Hinweis: 'U' gefunden nach Quantor.");
@@ -758,7 +788,7 @@ public class Zustandsformel {
 		        } else return true;
 		    }
 
-		    // 2. Klammern prüfen: "[" oder "〈"
+		    // 2. Klammern prüfen: "[" oder "〈", wenn es eine passende schleißende Klammer gibt, prüfe was nach der Klammer kommt
 		    if (zu_prüfende_Formel.startsWith("[") || zu_prüfende_Formel.startsWith("〈")) {
 		        char opening = zu_prüfende_Formel.charAt(0);
 		        char closing = (opening == '[') ? ']' : '〉';
@@ -780,13 +810,13 @@ public class Zustandsformel {
 		        return false;
 		    }
 
-		    // 3. Negation prüfen: "¬"
+		    // 3. Negation prüfen: "¬", prüfen was danach kommt
 		    if (zu_prüfende_Formel.startsWith("¬")) {
 		        if (debug) printAufruf(tiefe, "Gefunden: Negation ¬");
 		        return ist_Zustandsformel(zu_prüfende_Formel.substring(1).trim(), tiefe + 1);
 		    }
 
-		    // 4. Klammern prüfen: "("
+		    // 4. Klammern prüfen: "(",prüfen was danach kommt
 		    if (zu_prüfende_Formel.startsWith("(")) {
 		        int closingIndex = findMatchingBracket(zu_prüfende_Formel, '(', ')');
 		        if (closingIndex == -1) {
@@ -801,7 +831,7 @@ public class Zustandsformel {
 		        return ist_Zustandsformel(zu_prüfende_Formel.substring(1, closingIndex).trim(), tiefe + 1);
 		    }
 
-		    // 5. Logische Operatoren prüfen: "∧" und "∨"
+		    // 5. Logische Operatoren prüfen: "∧" und "∨", linke und rechte Seite prüfen dabei auf Klammern achten
 		    int andIndex = zu_prüfende_Formel.indexOf("∧");
 		    int orIndex = zu_prüfende_Formel.indexOf("∨");
 
@@ -986,7 +1016,18 @@ public class Zustandsformel {
         return fehlerbeschreibung;
     }
     
-    // Eine einfache Triple-Klasse, um Index, Term und Tiefe zu speichern
+  //Wrapper-Klasse für Rückgabewerte (Ergebnis + fehlerhafter Teil)
+    class Prüfungsergebnis {
+     boolean istKorrekt;
+     String fehlerhafterTeil;
+
+     Prüfungsergebnis(boolean korrekt, String teil) {
+         this.istKorrekt = korrekt;
+         this.fehlerhafterTeil = teil;
+     }
+    }
+    
+    //Triple-Klasse, um Index, Term und Tiefe zu speichern
     static class Triple<K, V, T> {
         private final K key;
         private final V value;
@@ -1004,16 +1045,6 @@ public class Zustandsformel {
     }
 }
 
-//Wrapper-Klasse für Rückgabewerte (Ergebnis + fehlerhafter Teil)
-class Prüfungsergebnis {
- boolean istKorrekt;
- String fehlerhafterTeil;
-
- Prüfungsergebnis(boolean korrekt, String teil) {
-     this.istKorrekt = korrekt;
-     this.fehlerhafterTeil = teil;
- }
-}
 
 	
 

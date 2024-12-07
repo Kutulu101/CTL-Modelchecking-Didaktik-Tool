@@ -6,7 +6,10 @@ import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Shape;
 import javafx.scene.text.Text;
 
+//Klasse zum gebündelten Verwalten der GUI-Elemente die an einer Relation beteiligt sind
 public class Relation {
+	
+	//alle beteiligten GUI Elemente
    private final Circle firstCircle;
    private final Circle secondCircle;
    private final Text firstCircleLabel;
@@ -17,8 +20,10 @@ public class Relation {
    private final String detailsString;
    private final int offset;
 
+   //Kosntruktor mit allen zu bündelnden Elementen
    public Relation(Circle firstCircle, Circle secondCircle, Text firstCircleLabel, Text secondCircleLabel, Shape line, Polygon arrowHead, Label arrowLabel, String transition, int offset) {
-      this.firstCircle = firstCircle;
+      
+	   this.firstCircle = firstCircle;
       this.secondCircle = secondCircle;
       this.firstCircleLabel = firstCircleLabel;
       this.secondCircleLabel = secondCircleLabel;
@@ -28,7 +33,8 @@ public class Relation {
       this.offset = offset;
       this.detailsString = "Relation: " + firstCircleLabel.getText() + " " + transition + " " + secondCircleLabel.getText();
    }
-
+   
+   //Diverse Getter und Setter
    public Circle getFirstCircle() {
       return this.firstCircle;
    }

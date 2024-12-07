@@ -7,14 +7,17 @@ import java.util.stream.Collectors;
 
 public abstract class erfüllende_Mengen {
     
+	//Symbol das die Menge repräsentiert
     protected String symbol;
     
+    //MEthode die Impelmentiert werden muss und die erfüllende Menge zurück gibt
     public abstract Set<Zustand> berechne(Transitionssystem ts);
 
     public String get_symbol() {
         return symbol;
     }
     
+    //Methode zum Debuggen die erfülllenden Menge formatiert auf Konsole ausgibt
 	protected String print_Lösungsmenge(Set<Zustand> menge) {
 	    if (menge.isEmpty()) {
 	        return "∅"; // Zeichen für die leere Menge
@@ -27,17 +30,22 @@ public abstract class erfüllende_Mengen {
 	}
 }
 
-//Interface für Funktion der Detail-Ausgabe bei ∃ϕUψ und ∃□ϕ
-
+//Interface für Funktion der Detail-Ausgabe der Schritt für Schrittlösung bei ∃ϕUψ und ∃□ϕ, immer erfüllend eMenge druch Fixpunkt-Itteration berechnet werden muss
 interface detail_lösung{
 	public String get_schritt_weise_lösung();
 }
 
-//##################Wird nochmal aufgeteilt, entweder eine Lösungsmenge deffiniert sich über keine,1 oder zwei vorhergehende Lösungsmengen
+//#######Interface für erfüllenden Mengen die Übergänge in ihrere Definiton/Berechnung haben
+interface HatÜbergang {
+	    Set<Übergang> getÜbergänge();
+	}
+
+
+//##################Abstrakte Klasse wird nochmal aufgeteilt je nachdem ob eine, zwei oder keine erfüllende Menge in der rekursiven Definiton der Erfüllenden Menge vorkommt
 
 // Verzweigung: Für Klassen mit zwei vorherigen Lösungsmengen linker und rechter Seite
-
 abstract class Verzweigung extends erfüllende_Mengen {
+	
     protected erfüllende_Mengen linke_Seite;
     protected erfüllende_Mengen rechte_Seite;
 
@@ -56,11 +64,9 @@ abstract class Verzweigung extends erfüllende_Mengen {
 	public void setRechte_Seite(erfüllende_Mengen rechte_Seite) {
 		this.rechte_Seite = rechte_Seite;
 	}
-    
-    
 }
 
-//damit ist nicht das klassiche Until gemeint sondern ein Ausdruck nahc der Art psi-U-gamma
+//damit ist nicht das klassiche Until gemeint sondern ein Ausdruck nach der Art ∃psi-U-gamma
 class psi_Until_gamma extends Verzweigung implements detail_lösung{
 	
 	String detail_lösung;
@@ -168,27 +174,20 @@ class And extends Verzweigung {
     }
 }
 
-//######################################Ast: Für Klassen, die eine innere Menge besitzen
+//######################################Ast: Für erfüllende Mengen, in deren Definiton nur eine weitere erfüllende Menge vorkommt
 abstract class Ast extends erfüllende_Mengen {
  protected erfüllende_Mengen innere_Menge;
 
 	 public erfüllende_Mengen getInnere_Menge() {
 	     return innere_Menge;
 	 }
-	 
 	
 	public void setInnere_Menge(erfüllende_Mengen innere_Menge) {
 		this.innere_Menge = innere_Menge;
 	}
 }
 
-//#######Interface für die Übergänge
-interface HatÜbergang {
-	    Set<Übergang> getÜbergänge();
-	}
-
-
-//<A'>psi, Noch mit der Unsicherheit ob die innere Menge erweitert wird oder neu aufgebaut wird
+//<A'>psi
 class  ein_übergang extends Ast implements HatÜbergang{
 	
 	Set<Übergang> übergänge;
@@ -202,9 +201,8 @@ class  ein_übergang extends Ast implements HatÜbergang{
 	public  Set<Zustand> berechne(Transitionssystem ts) {
 		
 	    Set<Zustand> returnSet;
-	    //Unsicher ist Return Set hier ein neues Set oder wird die innere erfüllende Menge erweitert
+
 	    returnSet = new HashSet<Zustand>();
-	    //returnSet = this.innere_Menge;
 	    
 	    //berechnne der inneren_Lösungsmenge
 	    Set<Zustand> innere_lösungs_menge = this.innere_Menge.berechne(ts);
@@ -236,15 +234,13 @@ class  ein_übergang extends Ast implements HatÜbergang{
 	    return returnSet;
 	}
 
-	
-
 public Set<Übergang> getÜbergänge() {
 	return übergänge;
 	}
 }
 
 
-//[A']psi,Noch mit der Unsicherheit ob die innere Menge erweitert wird oder neu aufgebaut wird
+//[A']psi
 class alle_übergänge  extends Ast implements HatÜbergang{
 	
 	Set<Übergang> übergänge = new HashSet<>();
@@ -256,7 +252,7 @@ class alle_übergänge  extends Ast implements HatÜbergang{
 	
     public Set<Zustand> berechne(Transitionssystem ts) {
 
-        // Neues Set initialisieren (oder bestehende innere Menge nutzen)
+        // Neues Set initialisieren
         Set<Zustand> returnSet = new HashSet<Zustand>();  // Neu initialisieren
         // returnSet = this.innere_Menge;  // Alternative: Existierende Menge erweitern
         
@@ -297,9 +293,7 @@ class alle_übergänge  extends Ast implements HatÜbergang{
 		}
 	}
 
-
-
-//Negation, Rekursion safe
+//Negation
 class Negation extends Ast{
 	
 	public Negation (erfüllende_Mengen innere_Menge) {
@@ -310,6 +304,7 @@ class Negation extends Ast{
 		
     Set<Zustand> NegatedSet;
     
+    //Negiert die erfüllende Menge innere Menge
     NegatedSet = new HashSet<>(ts.getZustände());
     NegatedSet.removeAll(innere_Menge.berechne(ts));
     
@@ -318,7 +313,7 @@ class Negation extends Ast{
 }
 
 
-//damit ist dritt lette Formel gemeint
+//"∃○<psi>
 class in_einem_nächsten_zustand_gilt extends Ast{
 	
 	public in_einem_nächsten_zustand_gilt (erfüllende_Mengen innere_Menge) {
@@ -356,9 +351,7 @@ class in_einem_nächsten_zustand_gilt extends Ast{
     }
 }
 
-
-
-//damit ist die letzte Rekursive Definition aus dem Kurstext gemeint
+//∃□<psi>
 class ein_pfad_auf_dem_immer_gilt extends Ast implements detail_lösung{
 	
 	String detail_lösung;
@@ -439,10 +432,10 @@ class ein_pfad_auf_dem_immer_gilt extends Ast implements detail_lösung{
 
 //####################Blatt: Für Klassen ohne innere Menge oder Seiten (keine Setter nötig)
 abstract class Blatt extends erfüllende_Mengen {
-// Keine spezifischen Attribute oder Methoden notwendig
+// Keine spezifischen Attribute oder Methoden notwendig, nur für späteren Polymorphismus
 }
 //Alle Zustände aus dem TS erfüllen die Formel hinter dem CTL_Symbol 1
-class one extends erfüllende_Mengen{
+class one extends Blatt{
 	
 	public one() {
 		this.symbol = "{Z}";
@@ -454,12 +447,12 @@ class one extends erfüllende_Mengen{
 }
 
 //Wenn 0 dann gib die leere Menge zurück, Rekursion safe
-class null_ extends erfüllende_Mengen{
+class null_ extends Blatt{
 	
 	null_(){
 		this.symbol = "∅";
 	}
 	public  Set<Zustand> berechne(Transitionssystem ts) {
-    return new HashSet<Zustand>();
+		return new HashSet<Zustand>();
 	}
 }
