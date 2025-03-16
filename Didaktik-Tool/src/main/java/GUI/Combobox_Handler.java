@@ -1,11 +1,14 @@
 package GUI;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicReference;
 
+import CTL_Backend.ErrorDialog;
+import CTL_Backend.NormalFormException;
 import CTL_Backend.Zustandsformel;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -39,6 +42,9 @@ public class Combobox_Handler {
     
     //Hbox für die Aufnahme der Comboboxen und der Labels
     HBox formelbox;
+    
+    //Lsite mit globalen Transitionen
+    List<String> vorauswahl_transitionen = null;
 	
     //Konstruktor kennt HBox die in Eingaben in GUI anzeigt
 	public Combobox_Handler(HBox formelbox){
@@ -52,7 +58,7 @@ public class Combobox_Handler {
     //Gibt die Zustandsformel gewandelt in Rekursive Form zurück
     public Zustandsformel get_transformed_Zustandsformel() {
     	zustandsformel.turn_to_normal_form();
-    	zustandsformel.turn_string_into_recursive_ctl();
+    	zustandsformel.turn_string_into_recursive_ctl_rekursiv();
 		return zustandsformel;
 	}
     
@@ -97,40 +103,40 @@ public class Combobox_Handler {
         else {entered_symbol = (String) sourceComboBox.getValue();}
         
         //Tooltip für das ausgewählte Item extrahieren
-        Tooltip selectedTooltip = new Tooltip(zustandsformel.einlesbare_Symbole().get(entered_symbol));
+        Tooltip selectedTooltip = new Tooltip(zustandsformel.einlesbare_Symbole().get(entered_symbol)+defintion_reader.getDefinitionForSymbol(entered_symbol,"CTL-Definitionen.txt","Definition nicht gefunden") +"\n\n"+ defintion_reader.getDefinitionForSymbol(entered_symbol,"CTL-Symboleumgangsprachlich.txt","" ));
         
         //NAch dem Einlesen der Eingabe soll Label erzeugt werden und 
         this.replaceComboBoxWithTextField(entered_symbol,selectedTooltip);
-        this.zustandsformel.ein_char_einlesen(entered_symbol);
+        //this.zustandsformel.ein_char_einlesen(entered_symbol);
     }
 
 	//Methode die InputBox öffnet und das Einlesen einer Transition ermöglicht
 	 private char read_transition(String headline){
-	        
-        // Öffne eine Input-Box (TextInputDialog) für die Eingabe eines Charakters
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Transition Eingabe");
-        dialog.setHeaderText(headline); // Verwende die headline hier
-        dialog.setContentText("Charakter:");
-
-        // Zeige den Dialog und warte auf die Eingabe des Benutzers
-        Optional<String> result = dialog.showAndWait();
-
-        if (result.isPresent()) {
-            String input = result.get();
-            if (input.length() == 1) {
-                // Wenn ein einzelner Charakter eingegeben wurde, verarbeite ihn
-                char enteredChar = input.charAt(0);
-                return enteredChar; // Rückgabe des gültigen Zeichens
-            } else {
-                // Falls der Benutzer mehr als einen Charakter eingibt
-                return read_transition("Bitte nur einen Charakter eingeben!"); // Rekursiver Aufruf mit neuer Nachricht
-            }
-        } else {
-            // Falls der Benutzer den Dialog abbricht
-            System.out.println("Eingabe abgebrochen.");
-            return '\0'; // Rückgabewert, der anzeigt, dass keine gültige Eingabe gemacht wurde
-        }
+		
+	        // Öffne eine Input-Box (TextInputDialog) für die Eingabe eines Charakters
+	        TextInputDialog dialog = new TextInputDialog();
+	        dialog.setTitle("Transition Eingabe");
+	        dialog.setHeaderText(headline); // Verwende die headline hier
+	        dialog.setContentText("Charakter:");
+	
+	        // Zeige den Dialog und warte auf die Eingabe des Benutzers
+	        Optional<String> result = dialog.showAndWait();
+	
+	        if (result.isPresent()) {
+	            String input = result.get();
+	            if (input.length() == 1 && input !="") {
+	                // Wenn ein einzelner Charakter eingegeben wurde, verarbeite ihn
+	                char enteredChar = input.charAt(0);
+	                return enteredChar; // Rückgabe des gültigen Zeichens
+	            } else {
+	                // Falls der Benutzer mehr als einen Charakter eingibt
+	                return read_transition("Bitte Genau einen Charakter eingeben!"); // Rekursiver Aufruf mit neuer Nachricht
+	            }
+	        } else {
+	            // Falls der Benutzer den Dialog abbricht
+	            System.out.println("Eingabe abgebrochen.");
+	            return '\0'; // Rückgabewert, der anzeigt, dass keine gültige Eingabe gemacht wurde
+	        }
     }
 	 
 	 //Methode die ComboBox entfernt, eingelesenen Char in Label darstellt, und neue Combobox erzeugt
@@ -163,6 +169,9 @@ public class Combobox_Handler {
         //Tooltip auf Textfeld übertragen
         Tooltip.install(textField, tooltip);
         
+        //einlesen des Zeichend in die Zustandsformel
+        this.zustandsformel.ein_char_einlesen(enteredSymbol);
+        
         //neue Combobox nur wenn nicht Formelende gelesen wurde 
         if(!(enteredSymbol.contains("Formelende"))){
         	
@@ -193,7 +202,17 @@ public class Combobox_Handler {
         // Die Keys der Map als ObservableList für die ComboBox-Items verwenden
         ObservableList<String> items = FXCollections.observableArrayList(gruende.keySet());
         comboBox.setItems(items);
-    	
+
+     // Prüfen, ob this.vorauswahl_transitionen nicht null und nicht leer ist
+        if (this.vorauswahl_transitionen != null && !this.vorauswahl_transitionen.isEmpty()&& "".equals(gruende.get("Transition eingeben"))) {
+            // "Transition auswählen" entfernen, falls vorhanden
+            items.remove("Transition eingeben");
+
+            // Alle Strings aus this.vorauswahl_transitionen zu den Items hinzufügen
+            items.addAll(this.vorauswahl_transitionen);
+        }
+
+
     	// Benutzerdefinierte ListCell für ComboBox
         comboBox.setCellFactory(new Callback<ListView<String>, ListCell<String>>() {
             @Override
@@ -205,7 +224,7 @@ public class Combobox_Handler {
                         if (symbol != null && !empty) {
                             setText(symbol);
 
-                            // Wenn Symbol in der Map der nicht einlesbaren Symbole ist und der Grund nicht "" ist
+                            // Wenn Symbol in der Map der Symbole ist und der Grund nicht "" ist, man es also nicht einlesen darf -> ausgrauen
                             if (gruende.containsKey(symbol) && !"".equals(gruende.get(symbol))) {
                                 // Text und Hintergrund grau färben
                                 setStyle("-fx-text-fill: gray; -fx-background-color: lightgray;");
@@ -216,7 +235,7 @@ public class Combobox_Handler {
                                 //TollTip hinzufügen
                                 setTooltip(tooltip);
                                 
-                                
+
                             } else {
                                 // Standardtextfarbe für einlesbare Symbole
                                 setStyle("-fx-text-fill: black;");
@@ -237,12 +256,16 @@ public class Combobox_Handler {
     	//neue Combobox
         ComboBox newComboBox;
         
+        String test= this.zustandsformel.getFormel_string();
+        
         //Wenn Formelende letztes Label ist, kann keine Combobox oder Label entfernt werden
         if (this.historyStack.size() < 2 && (this.historyStack.size() != 1 || !(this.historyStack.peek() instanceof Label))) {
+        	
+        	
            if (this.zustandsformel.getFormel_string().endsWith("Formelende")) {
         	  
         	   //letzen char aus Formelentfernen
-              this.zustandsformel.entferneLetztenChar();
+              this.zustandsformel.entferneLetztenChar(checkIfRed());
               
               //neue Combobox erzeugen
               newComboBox = new ComboBox();
@@ -262,7 +285,7 @@ public class Combobox_Handler {
            }
            
            //entferne den lezten Char aus der Zustandsformel
-           this.zustandsformel.entferneLetztenChar();
+           this.zustandsformel.entferneLetztenChar(checkIfRed());
            
            //erzeuge neue ComboBox
            newComboBox = new ComboBox();
@@ -296,4 +319,8 @@ public class Combobox_Handler {
      public boolean isStackEmpty() {
         return this.historyStack.isEmpty();
      }
+
+	public void setVorauswahl_transitionen(List<String> vorauswahl_transitionen) {
+		this.vorauswahl_transitionen = vorauswahl_transitionen;
+	}
 }

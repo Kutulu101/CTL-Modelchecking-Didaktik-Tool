@@ -5,13 +5,19 @@ import CTL_Backend.Transitionssystem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
+import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -63,6 +69,15 @@ public class GUI_freier_Modus extends Application {
    Rectangle2D screenBounds;
    protected double total_screen_width;
    protected double total_screen_height;
+   
+   //Antwort des Bedieners welche Zustände erfüllen
+   String selectedStates = "";
+   
+ //Pane für Hintergrund
+   BorderPane root;
+   
+   //Flag zum Überwachen der Vorauswahl
+   private boolean isUpdatingText = false; 
 
    public GUI_freier_Modus(boolean via_main) {
 	   
@@ -76,7 +91,7 @@ public class GUI_freier_Modus extends Application {
    public void start(Stage primaryStage) {
 	   
 	  //Pane für Hintergrund
-      BorderPane root = new BorderPane();
+      root = new BorderPane();
       
       //Pane auf der Transiitonsystem gezeichnet wird
       Pane drawingPane = new Pane();
@@ -92,19 +107,62 @@ public class GUI_freier_Modus extends Application {
       Button btnBerechnen = new Button("Berechne Lösungsmengen");
       Button btnNeustart = new Button("Programm Neustarten");
       Button btnBeenden = new Button("Programm beenden");
+      
+      
+     
+
       buttonBox.getChildren().addAll(btnAddCircle, btnRelation, btnUndocomboBox, btnTS_entfernen, btnBerechnen, btnNeustart, btnBeenden);
       
       //Trnasitonen vorauswählen ermöglich es dem Benutzer die Trnasitionen die eingebenn werden könne  zu reduzieren
       Label label = new Label("Transitionen vorauswählen (getrennt durch Komma): ");
       TextField eingabeFeld = new TextField();
       eingabeFeld.textProperty().addListener((observable, oldValue, newValue) -> {
-         if (!newValue.isEmpty()) {
-            this.vorauswahl_transitionen = new ArrayList(Arrays.asList(newValue.split(",")));
-         } else {
-            this.vorauswahl_transitionen = new ArrayList();
-         }
-
-      });
+    	  try { 
+	          if (isUpdatingText) {
+	              return; // Verhindert rekursive Aufrufe, wenn der Text programmiert geändert wird
+	          }
+	
+	          
+	    	    if (!newValue.isEmpty()) {
+	    	        List<String> transitionen = Arrays.asList(newValue.split(","));
+	
+	    	        // Überprüfung: Kein Element darf leer sein und es müssen nur einzelne Zeichen sein
+	    	        if (transitionen.stream().allMatch(t -> t.trim().length() == 1 && !t.trim().isEmpty())) {
+	    	            this.vorauswahl_transitionen = new ArrayList<>(transitionen.stream().map(String::trim).collect(Collectors.toList()));
+	    	            combobox_handler.setVorauswahl_transitionen(vorauswahl_transitionen);
+	    	        } else {
+	    	            this.vorauswahl_transitionen.clear();
+	    	            combobox_handler.setVorauswahl_transitionen(vorauswahl_transitionen);
+	
+	    	            // Clear asynchron ausführen, um die Exception zu vermeiden
+	    	            Platform.runLater(() -> {
+	                        isUpdatingText = true; // Schutzschalter aktivieren
+	                        eingabeFeld.clear();
+	                        isUpdatingText = false; // Schutzschalter deaktivieren
+	                    });
+	    	            
+	    	            showAlert("Ungültige Eingabe", "Bitte geben Sie nur einzelne Zeichen ein, getrennt durch Komma.");
+	    	        }
+	    	    } else {
+	    	    	
+	                // Leere Eingabe: Übergangsliste zurücksetzen
+	                vorauswahl_transitionen.clear();
+	                combobox_handler.setVorauswahl_transitionen(vorauswahl_transitionen);
+	    	    	
+	    	    	// Clear asynchron ausführen, um die Exception zu vermeiden
+	    	    	 Platform.runLater(() -> {
+	                     isUpdatingText = true; // Schutzschalter aktivieren
+	                     eingabeFeld.clear();
+	                     isUpdatingText = false; // Schutzschalter deaktivieren
+	                 });
+	    	        combobox_handler.setVorauswahl_transitionen(vorauswahl_transitionen);
+	    	    }
+    	  }catch (IllegalArgumentException e) {
+          // Exception ignorieren, da diese Programmablauf nciht beienflusst
+    	  }
+    	});
+      
+      Tooltips_für_Buttons.setTooltip_globale_Transition(label);
       
       HBox eingabeBox = new HBox(10.0);
       eingabeBox.getChildren().addAll(label, eingabeFeld);
@@ -122,27 +180,18 @@ public class GUI_freier_Modus extends Application {
       this.combobox_handler.handle_first_combobox(root);
       
       //Listner zu draw Relations um zwischen den Eingabemöglichkeiten zu wechseln
-      this.draw_relations.addListener((observable, oldValue, newValue) -> {
+      this.draw_relations.addListener((ChangeListener<? super Boolean>) (observable, oldValue, newValue) -> {
          //Beu Wechsel der Modi werden evtl. bereits angeklickte Kreise genullt
-    	  this.firstCircle = null;
+    	 this.firstCircle = null;
          this.secondCircle = null;
          this.firstCircle_label = null;
          this.secondCircle_label = null;
          
          //Toggled die Buttons
          if (this.draw_relations.get()) {
-            btnRelation.setText("Einzeichnen Beenden");
-            
-            //färbe alle Kreise gelb
-            root.lookupAll(".circle_with_text").forEach((node) -> {
-               Group group = (Group)node;
-               if (group.getChildren().get(0) instanceof Circle) {
-                  ((Circle)group.getChildren().get(0)).setFill(Color.YELLOW);
-               }
-
-            });
+            btnRelation.setText("Einzeichnen Beenden");          
+            this.circle_builder.colorAllCirclesYellow(drawingPane);
          } else {
-        	 
             btnRelation.setText("Einzeichnen Starten");
             //färbe alle Kreise Blau
             this.circle_builder.colorAllCirclesBlue(drawingPane);
@@ -164,13 +213,17 @@ public class GUI_freier_Modus extends Application {
          primaryStage.close();
       });
       
+      Tooltips_für_Buttons.setTooltip_beenden_Modus(btnBeenden);
+      
       //Entferent das aktuell TS
       btnTS_entfernen.setOnAction((event) -> {
          drawingPane.getChildren().clear();
          this.circle_builder.clearCircleGroups();
          this.arrow_builder.clearRelations();
-         this.sidebar_handler.removeSidebar();
+         this.sidebar_handler.removeSidebar(null);
       });
+      
+      Tooltips_für_Buttons.setTooltip_Ts_loeschen(btnTS_entfernen);
       
       //Fügt Kreis/Zustand hinzu
       btnAddCircle.setOnAction((e) -> {
@@ -187,15 +240,21 @@ public class GUI_freier_Modus extends Application {
          //beendet das Einzeichnen von Relatioen
          this.draw_relations.set(false);
          btnRelation.setText("Transtionenen einzeichnen");
-         this.sidebar_handler.removeSidebar();
+         this.sidebar_handler.removeSidebar(null);
       });
+      
+      Tooltips_für_Buttons.setTooltip_neuerZustand(btnAddCircle);
       
       //Wechselt den Modus und ermöglocht dadruch das Einzeichnen von Relationen
       btnRelation.setOnAction((e) -> {
          this.draw_relations.set(!this.draw_relations.get());
-         //entfernt Sidebar da sich TX verändert und Lösung hinfällig ist
-         this.sidebar_handler.removeSidebar();
+         
+         //entfernt Sidebar da sich TS verändert und Lösung hinfällig ist
+         this.sidebar_handler.removeSidebar(drawingPane);
+       
       });
+      
+      Tooltips_für_Buttons.setTooltip_relation_einzeichen(btnRelation);
       
       //Button der Berechnung startet 
       btnBerechnen.setOnAction((event) -> {
@@ -225,22 +284,25 @@ public class GUI_freier_Modus extends Application {
          } else {//Berechnung starten
         	 
         	 //schließt Eingabefelder und beendet Relation einzeichnen
-            this.circle_builder.schliesseAlleEingabefelder(root);
+            this.circle_builder.bereite_berechnung_vor(root);
             this.draw_relations.set(false);
             //Erzeugt Transitionsystem aus Relationen
             Transitionssystem transsitionssystem = new Transitionssystem(this.arrow_builder.getList_of_relations());
-            //erzeugt Sidebar
             this.sidebar_handler.createSidebar(this.FormelBox, this.combobox_handler.get_transformed_Zustandsformel(), root, transsitionssystem);
             root.requestLayout();
-         }
+            }
 
       });
+      
+      Tooltips_für_Buttons.setTooltip_berechen(btnBerechnen);
       
       //Entfernt das letzte eingelesene Zeichen
       btnUndocomboBox.setOnAction((event) -> {
          this.combobox_handler.undo_combobox();
-         this.sidebar_handler.removeSidebar();
+         this.sidebar_handler.removeSidebar(null);
       });
+      
+      Tooltips_für_Buttons.setTooltip_undo(btnUndocomboBox);
       
       //Startet das Programm neu
       btnNeustart.setOnAction((event) -> {
@@ -262,6 +324,8 @@ public class GUI_freier_Modus extends Application {
          }
 
       });
+      
+      Tooltips_für_Buttons.setTooltip_neustart(btnNeustart);
       
       //Startet die Scene in Vollbiildmodus
       this.screenBounds = Screen.getPrimary().getVisualBounds();
@@ -307,6 +371,16 @@ public class GUI_freier_Modus extends Application {
       }
 
    }
+   
+   private void showAlert(String title, String message) {
+       Alert alert = new Alert(Alert.AlertType.WARNING);
+       alert.setTitle(title);
+       alert.setHeaderText(null);
+       alert.setContentText(message);
+       alert.showAndWait();
+   }
+   
+   
 
    public static void main(String[] args) {
       launch(args);

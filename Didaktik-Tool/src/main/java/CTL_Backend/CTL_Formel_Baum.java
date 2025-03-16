@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import GUI.Tooltips_für_Buttons;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -22,7 +24,7 @@ import javafx.stage.Stage;
 public class CTL_Formel_Baum {
 	
 	//Startpunkt der rekursiv definierten CTL-Formel
-   private erfüllende_Mengen startpunkt = null;
+   private ErfüllendeMenge startpunkt = null;
    
    //Transitionssystem zur Berechnung
    private Transitionssystem transitionssystem;
@@ -43,23 +45,30 @@ public class CTL_Formel_Baum {
    private boolean detail_lösungen_anzeigen;
    
    // Konstruktor zur Initialisierung des Baums mit Startpunkt und Transitionssystem
-   public CTL_Formel_Baum(erfüllende_Mengen startpunkt, Transitionssystem transitionssystem) {
+   public CTL_Formel_Baum(ErfüllendeMenge startpunkt, Transitionssystem transitionssystem) {
        this.startpunkt = startpunkt;
        this.transitionssystem = transitionssystem;
    }
 
    /**
     * Zeichnet den Baum in einem neuen Fenster.
+ * @throws ErfüllendeMengeExeption 
     */
-   public Stage zeichneBaum(double startwidht, double startHeight, Button shared_button) {
+   public Stage zeichneBaum(double startwidht, double startHeight, Button shared_button) throws ErfüllendeMengeExeption {
 	   
 	  //erzeuge ZeichenPane auf der Baum dargestellt wird
       this.zeichenPane = new Pane();
       
       // Baum nur zeichnen, wenn ein Startpunkt übergeben wurde
       if (this.startpunkt != null) {
-    	 //Lösungsmenge für die CTL-Formel im entsprechenden TS-berechnen
-         this.startpunkt.berechne(this.transitionssystem);
+    	  try {
+    		//Lösungsmenge für die CTL-Formel im entsprechenden TS-berechnen
+    	         this.startpunkt.berechne(this.transitionssystem);
+  	    } catch (Exception e) {
+  	        // Neue Exception werfen mit Kontext
+  	        throw new ErfüllendeMengeExeption("Fehler bei der Erstellung der Rekursiven Struktur", e);
+  	    }
+    	 
          //starte die rekursive Funktion die Baum zeichnet, null wird übergeben weil erstes Element im Baum kein Parent-Elemenmt hat
          this.drawTree(this.zeichenPane, this.startpunkt, startwidht / 2.0, 100.0, 200.0, 80.0, (NodeBox)null);
          //Funktion, die die Linien updatet
@@ -86,6 +95,8 @@ public class CTL_Formel_Baum {
           group.setScaleY(1.0);
       });
       
+      Tooltips_für_Buttons.setTooltip_zentrieren(zentriereButton);
+      
       //Buttond der Überlappungen im Formelbaum auflöst, geht immer von orginal Layout aus
       Button entzerrenButton = new Button("Baum entzerren");
       entzerrenButton.setOnAction((event) -> {
@@ -93,6 +104,8 @@ public class CTL_Formel_Baum {
          this.checkOverlappingNodeBoxes(0);
          this.updateLines();
       });
+      
+      Tooltips_für_Buttons.setTooltip_entzerren(entzerrenButton);
       
       //Button der Lösungsmengen und Detaillösungen sichtbar macht
       Button lösungsmengen_sichtbar_Button = new Button("Erfüllende Mengen sichtbar machen");
@@ -107,6 +120,8 @@ public class CTL_Formel_Baum {
          //Ändert Sichtbarkeit
          this.set_lösungsmengen_sichtbarkeit(this.ist_erfüllende_menge_sichtbar);
       });
+      
+      Tooltips_für_Buttons.setTooltip_teilergebnisse(lösungsmengen_sichtbar_Button);
       
       //Buttons zur HBox hinzufügen, und Formatieren
       HBox buttonBox = new HBox(10.0);
@@ -155,13 +170,11 @@ public class CTL_Formel_Baum {
       
       group.setOnMousePressed(event -> {
     	    if (event.isSecondaryButtonDown()) {
-    	        System.out.println("Mouse pressed at: " + event.getSceneX() + ", " + event.getSceneY());
     	        group.setUserData(new double[]{event.getSceneX(), event.getSceneY()});
     	    }
     	});
     	group.setOnMouseDragged(event -> {
     	    if (event.isSecondaryButtonDown()) {
-    	        System.out.println("Mouse dragged at: " + event.getSceneX() + ", " + event.getSceneY());
     	        double[] data = (double[]) group.getUserData();
     	        double deltaX = event.getSceneX() - data[0];
     	        double deltaY = event.getSceneY() - data[1];
@@ -194,7 +207,7 @@ public class CTL_Formel_Baum {
    }
    
    //Rekursive Methode zum Zeichnen des Formelbaums
-   private void drawTree(Pane pane, erfüllende_Mengen erfüllende_Menge, double x, double y, double xOffset, double yOffset, NodeBox parent) {
+   private void drawTree(Pane pane, ErfüllendeMenge erfüllende_Menge, double x, double y, double xOffset, double yOffset, NodeBox parent) {
       
 	   //Ersetzt aus dem im Node gespeicherten Symbol die Symbole für die Übergänge mit den tatsächlichen Übergängen
 	   if (erfüllende_Menge != null) {
@@ -203,7 +216,7 @@ public class CTL_Formel_Baum {
             HatÜbergang hatÜbergang = (HatÜbergang)erfüllende_Menge;
             Set<Übergang> übergänge = hatÜbergang.getÜbergänge();
             String übergängeString = (String)übergänge.stream().map(Übergang::getZeichen).collect(Collectors.joining(", "));
-            symbol = erfüllende_Menge.get_symbol().replace("übergänge", übergängeString);
+            symbol = erfüllende_Menge.get_symbol().replace("{übergänge}", übergängeString);
          } else {
             symbol = erfüllende_Menge.get_symbol();
          }
@@ -256,7 +269,7 @@ public class CTL_Formel_Baum {
          if (erfüllende_Menge instanceof Ast) {// eine erfüllende Menge in Definition
         	
         	 //extrahiere KindNode
-        	erfüllende_Mengen KindNode;
+        	ErfüllendeMenge KindNode;
             KindNode = ((Ast)erfüllende_Menge).getInnere_Menge();
             
             //berechne Pos. auf Pane
@@ -269,8 +282,8 @@ public class CTL_Formel_Baum {
          } else if (erfüllende_Menge instanceof Verzweigung) {//wenn zei erfüllende Mengen in Defintion
         	 
         	//extrhaiere beide Kindknoten
-        	erfüllende_Mengen leftNode = ((Verzweigung)erfüllende_Menge).getLinke_Seite();
-            erfüllende_Mengen rightNode = ((Verzweigung)erfüllende_Menge).getRechte_Seite();
+        	ErfüllendeMenge leftNode = ((Verzweigung)erfüllende_Menge).getLinke_Seite();
+            ErfüllendeMenge rightNode = ((Verzweigung)erfüllende_Menge).getRechte_Seite();
             
             //Berechen Pos. auf Pane
             double leftChildX = x - xOffset;

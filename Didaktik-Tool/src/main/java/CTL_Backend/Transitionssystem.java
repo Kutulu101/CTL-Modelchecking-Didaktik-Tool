@@ -11,8 +11,10 @@ public class Transitionssystem {
 	
 	//Set mir allen Zuständen
     private HashSet<Zustand> zustände = new HashSet<>();
+    private HashSet<Zustand> Antizustände = new HashSet<>();
     //Set mit namen des Zustandes und dem Zustands-Objekt, um redundante Zustandsobjekte zu verhindern
     private HashMap<String, Zustand> zustandsMap = new HashMap<>();
+	private HashMap<String, Zustand> antizustandsMap= new HashMap<>();
     
     //Transitionssystem wird aus Relationen im Stringformat erzeugt z.B "z1 a z2"
     public Transitionssystem(HashSet<Relation> relationen) {
@@ -42,12 +44,15 @@ public class Transitionssystem {
         }
         //Fügt alle Zusände zur Map hinzu
         this.zustände.addAll(this.zustandsMap.values());
+        this.Antizustände.addAll(this.antizustandsMap.values());
     }
 
     private Zustand getOrCreateZustand(String name) {
         if (!this.zustandsMap.containsKey(name)) {
-            Zustand neuerZustand = new Zustand(name, new LinkedList<>());
+            Zustand neuerZustand = new  KonkreterZustand(name, new LinkedList<>());
+            Zustand neuerAntiZustand = new  AntiZustand(name, new LinkedList<>());
             this.zustandsMap.put(name, neuerZustand);
+            this.antizustandsMap.put(name, neuerAntiZustand);
         }
 
         return this.zustandsMap.get(name);
@@ -57,11 +62,32 @@ public class Transitionssystem {
         return this.zustände;
     }
     
+    public HashSet<Zustand> getAntiZustände() {
+        return this.Antizustände;
+    }
+    
     //Zum Debugging gibt Zustände auf Konsole aus
     public void printAllZustände() {
        for(Zustand zustand : this.zustände) {
             zustand.printZustand();
         }
+    }
+    
+ // Gibt alle Zustände als String zurück
+    public String Alle_Zustände() {
+        StringBuilder result = new StringBuilder();
+        
+        for (Zustand zustand : this.zustände) {
+            // Holen des Namens des Zustands und Hinzufügen zum Ergebnis
+            result.append(zustand.getName()).append(", ");
+        }
+        
+        // Wenn der String nicht leer ist, entferne das letzte Komma und Leerzeichen
+        if (result.length() > 0) {
+            result.delete(result.length() - 2, result.length());
+        }
+        
+        return result.toString();
     }
 }
 

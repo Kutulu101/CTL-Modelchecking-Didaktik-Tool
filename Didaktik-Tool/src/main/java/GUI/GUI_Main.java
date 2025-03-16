@@ -27,15 +27,21 @@ public class GUI_Main extends Application {
          primaryStage.close();
       });
       
+      Tooltips_für_Buttons.setTooltipFor_freierModus(btnFreierModus);
+      
       Button btnZeichenModus = this.createButton("Zeichenmodus", () -> {
          this.openZeichenModus();
          primaryStage.close();
       });
       
+      Tooltips_für_Buttons.setTooltipFor_ZeichenModus(btnZeichenModus);
+      
       Button btnInequivalenzen = this.createButton("CTL-Inäquivalenzen ", () -> {
          this.openInequiModus();
          primaryStage.close();
       });
+      
+      Tooltips_für_Buttons.setTooltipFor_Inquivalenz(btnInequivalenzen);
       
       //Starten der Stage
       Objects.requireNonNull(primaryStage);

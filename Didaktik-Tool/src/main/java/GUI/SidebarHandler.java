@@ -2,6 +2,9 @@
 
 
 import CTL_Backend.CTL_Formel_Baum;
+import CTL_Backend.ErfüllendeMengeExeption;
+import CTL_Backend.ErrorDialog;
+import CTL_Backend.NormalFormException;
 import CTL_Backend.Transitionssystem;
 import CTL_Backend.Umformung;
 import CTL_Backend.Zustandsformel;
@@ -71,7 +74,7 @@ public class SidebarHandler {
    }
    
    //erstellt eine rechts ausgerichtete Sidebar
-   public void createSidebar(HBox formelbox, Zustandsformel zustandsformel, BorderPane root, Transitionssystem ts) {
+   public void createSidebar(HBox formelbox, Zustandsformel zustandsformel, BorderPane root, Transitionssystem ts){
 	    // erzeuge den CTL-Formelbaum basierend auf der Zustandsformel und dem Transitionssystem
 	    this.ctl_baum = new CTL_Formel_Baum(zustandsformel.getStart_der_rekursiven_Definition(), ts);
 
@@ -83,20 +86,20 @@ public class SidebarHandler {
 
 	    // Button: Anzeigen/Verstecken der Lösung in Normalform
 	    Button button1 = this.createToggleButton("Zeige Lösung Normalform", "Verstecke Lösung Normalform", (button) -> {
-	        this.isSolutionNormalFormVisible = !this.isSolutionNormalFormVisible;
-	        
-	        // Erstellen des Normalform-Panes, falls es noch nicht existiert
-	        if (this.normalformpane == null) {
-	            this.normalformpane = this.erstelle_Umformung_in_Normalform_ScrollPane(formelbox, zustandsformel, root);
-	        } else {
-	            // Sichtbarkeit und Verwaltung des Normalform-Panes aktualisieren
-	            this.normalformpane.setVisible(this.isSolutionNormalFormVisible);
-	            this.normalformpane.setManaged(this.isSolutionNormalFormVisible);
+	        try {
+	        	toggleNormalFormSolution(formelbox, zustandsformel, root, button);
+	        } catch (NormalFormException e) {
+	        	// Anzeigen einer Infobox bei Fehler
+	        	 ErrorDialog.show(
+	        	            "Fehler bei der Umformung in die Normalform",
+	        	            "Ein Fehler ist aufgetreten: " + e.getMessage() + 
+	        	            "\nBitte starten Sie das Programm mit einer anderen Eingabe neu."
+	        	        );
+	        	 removeSidebar(root);
 	        }
-
-	        // Aktualisieren des Button-Textes basierend auf der Sichtbarkeit
-	        button.setText(this.isSolutionNormalFormVisible ? "Verstecke Lösung Normalform" : "Zeige Lösung Normalform");
 	    });
+	    
+	    Tooltips_für_Buttons.setTooltip_normalform(button1);
 
 	    // Button: Zustände einfärben oder Farben zurücksetzen
 	    Button button2 = this.createToggleButton("Färbe erfüllende Zustände", "Farbe zurücksetzen", (button) -> {
@@ -109,6 +112,8 @@ public class SidebarHandler {
 	        this.circle_builder.färbeKreiseNachZustand(zustandsformel.get_Lösungsmenge(ts), this.is_colored);
 	    });
 	    this.color_button = button2; // Speichern des Buttons für zukünftige Verweise
+	    
+	    Tooltips_für_Buttons.setTooltip_färben(button2);
 
 	    // Button: Kompletten Formelbaum anzeigen oder ausblenden
 	    Button button3 = this.createToggleButton("Zeige Formelbaum komplett", "Formelbaum ausblenden", (button) -> {
@@ -118,7 +123,20 @@ public class SidebarHandler {
 	        if (this.formel_baum_stage == null) {
 	            String formelString = zustandsformel.getFormel_string().replace("Formelende", "");
 	            String normalForm = zustandsformel.getFormel_string_normal_form().replace("Formelende", "");
-	            this.create_formelbaum_stage(500, "Formelbaum für: " + formelString + " in Normelform: " + normalForm, this.shared_button_right, "");
+	            try {
+	                this.create_formelbaum_stage(500, 
+	                    "Formelbaum für: " + formelString + 
+	                    " in Normelform: " + normalForm, 
+	                    this.shared_button_right, "");
+	            } catch (ErfüllendeMengeExeption e) {
+	                // Anzeigen einer Infobox bei Fehler
+	                ErrorDialog.show(
+	                    "Fehler beim Berechnen der erfüllenden Menge",
+	                    "Ein Fehler ist aufgetreten: " + e.getMessage() + 
+	                    "\nBitte überprüfen Sie die Eingabe und versuchen Sie es erneut."
+	                );
+	            }
+
 	        } else {
 	            // Sichtbarkeit des Formelbaums aktualisieren
 	            this.setFormelBaumStageVisibility(this.isFormulaTreeCompleteVisible);
@@ -128,7 +146,9 @@ public class SidebarHandler {
 	        button.setText(this.isFormulaTreeCompleteVisible ? "Formelbaum ausblenden" : "Zeige Formelbaum komplett");
 	    });
 	    this.shared_button_right = button3; // Speichern des Buttons für zukünftige Verweise
-
+	    
+	    Tooltips_für_Buttons.setTooltip_formelbaum(button3);
+	    
 	    // Hinzufügen der Buttons zur Sidebar
 	    sidebar.getChildren().addAll(button1, button2, button3);
 
@@ -160,6 +180,26 @@ public class SidebarHandler {
 	    this.sidebar_right = sidebar; // Speichern der Sidebar-Referenz
 	    this.sidebar_container_right = container; // Speichern des Container-Referenz
 	}
+   
+   //Mehtode zum Togglen und Erzeugen der NormalformPane, gekapslet wegen Exeption werfen
+   private void toggleNormalFormSolution(HBox formelbox, Zustandsformel zustandsformel, BorderPane root, Button button) throws NormalFormException {
+	    // Umschalten der Sichtbarkeit der Lösung in der Normalform
+	    this.isSolutionNormalFormVisible = !this.isSolutionNormalFormVisible;
+
+	    // Erstellen des Normalform-Panes, falls es noch nicht existiert
+	    if (this.normalformpane == null) {
+	        // Kann eine NormalFormException werfen
+	        this.normalformpane = this.erstelle_Umformung_in_Normalform_ScrollPane(formelbox, zustandsformel, root);
+	    } else {
+	        // Sichtbarkeit und Verwaltung des Normalform-Panes aktualisieren
+	        this.normalformpane.setVisible(this.isSolutionNormalFormVisible);
+	        this.normalformpane.setManaged(this.isSolutionNormalFormVisible);
+	    }
+
+	    // Aktualisieren des Button-Textes basierend auf der Sichtbarkeit
+	    button.setText(this.isSolutionNormalFormVisible ? "Verstecke Lösung Normalform" : "Zeige Lösung Normalform");
+	}
+
 
    //Mehtode die Toogled ob die Sidebar
    private void toggleSidebar(VBox sidebar) {
@@ -183,10 +223,15 @@ public class SidebarHandler {
       return button;
    }
 
-   private ScrollPane erstelle_Umformung_in_Normalform_ScrollPane(HBox formelbox, Zustandsformel zustandsformel, BorderPane parentContainer) {
+   private ScrollPane erstelle_Umformung_in_Normalform_ScrollPane(HBox formelbox, Zustandsformel zustandsformel, BorderPane parentContainer) throws NormalFormException {
 	    
-	   // Konvertiert die Zustandsformel in eine Normalform
-	    zustandsformel.turn_to_normal_form();
+	    try {
+	        // Konvertiert die Zustandsformel in eine Normalform
+	        zustandsformel.turn_to_normal_form();
+	    } catch (Exception e) {
+	        // Neue Exception werfen mit Kontext
+	        throw new NormalFormException("Fehler bei der Umformung in die Normalform.", e);
+	    }
 
 	    // Hauptcontainer für die Anzeige von Formeln und Transformationen
 	    VBox gesamteVBox = new VBox();
@@ -208,7 +253,7 @@ public class SidebarHandler {
 
 	        // Entfernt das Wort "Formelende", falls es im ursprünglichen Ausdruck enthalten ist
 	        String vor_ersetzung_ohne_FE = umformung.getVor_der_Ersetzung();
-	        if (umformung.getVor_der_Ersetzung().contains("Formelende")) {
+	        if (vor_ersetzung_ohne_FE .contains("Formelende")) {
 	            vor_ersetzung_ohne_FE = vor_ersetzung_ohne_FE.replace("Formelende", "");
 	        }
 
@@ -228,6 +273,7 @@ public class SidebarHandler {
 	        label.setMinHeight(Double.NEGATIVE_INFINITY);
 	        VBox.setMargin(label, new Insets(0.0D));
 	        umformungsVBox.getChildren().add(label);
+	        System.out.println(normalerText.getText());
 	    }
 
 	    // Setzt den Abstand zwischen den Umformungsschritten
@@ -263,7 +309,7 @@ public class SidebarHandler {
    }
    
    //Methode die Formelbaum Stage erzeugt
-   private void create_formelbaum_stage(int x_offset, String zustandsformel_String, Button shared_button, String extraBeschriftung) {
+   private void create_formelbaum_stage(int x_offset, String zustandsformel_String, Button shared_button, String extraBeschriftung) throws ErfüllendeMengeExeption {
       this.formel_baum_stage = this.ctl_baum.zeichneBaum(700.0D, 500.0D, shared_button);
       this.formel_baum_stage.setTitle(zustandsformel_String + extraBeschriftung);
       this.bringSidebarsToFront();
@@ -307,19 +353,27 @@ public class SidebarHandler {
 	        this.is_colored = "Farbe zurücksetzen".equals(newValue);
 	    });
 	    this.color_button = button2;
-	
-	    // Button für die Sichtbarkeit der erfüllenden Mengen
-	    Button button4 = this.createToggleButton("Erfüllende Mengen sichtbar machen", "Erfüllende Mengen unsichtbar", (button) -> {
-	        this.isSatisfyingSetsVisible = !this.isSatisfyingSetsVisible;
-	        this.ctl_baum.set_lösungsmengen_sichtbarkeit(this.isSatisfyingSetsVisible);
-	    });
+	    
+	    Tooltips_für_Buttons.setTooltip_färben(button2);
 	
 	    // Button für das Anzeigen des Formelbaums
 	    Button button3 = this.createToggleButton("Zeige Formelbaum", "Formelbaum ausblenden", (button) -> {
 	        this.isFormulaTreeCompleteVisible = !this.isFormulaTreeCompleteVisible;
 	        if (this.formel_baum_stage == null) {
 	            // Erstellt den Formelbaum-Stage, falls nicht vorhanden
-	            this.create_formelbaum_stage(x_offset, "Formelbaum für: " + zustandsformel.getFormel_string().replace("Formelende", "") + " in Normelform: " + zustandsformel.getFormel_string_normal_form(), this.shared_button_right, extra_beschriftung);
+	        	try {
+	        	    this.create_formelbaum_stage(x_offset, 
+	        	        "Formelbaum für: " + zustandsformel.getFormel_string().replace("Formelende", "") + 
+	        	        " in Normelform: " + zustandsformel.getFormel_string_normal_form(), 
+	        	        this.shared_button_right, extra_beschriftung);
+	        	} catch (ErfüllendeMengeExeption e) {
+	        	    // Anzeigen einer Infobox bei Fehler
+	        	    ErrorDialog.show(
+	        	        "Fehler beim Berechnen der erfüllenden Menge",
+	        	        "Ein Fehler ist aufgetreten: " + e.getMessage() + 
+	        	        "\nBitte überprüfen Sie die Eingabe und versuchen Sie es erneut."
+	        	    );
+	        	};
 	        } else {
 	            // Setzt die Sichtbarkeit des Formelbaum-Stages
 	            this.setFormelBaumStageVisibility(this.isFormulaTreeCompleteVisible);
@@ -327,6 +381,8 @@ public class SidebarHandler {
 	        button.setText(this.isFormulaTreeCompleteVisible ? "Formelbaum ausblenden" : "Zeige Formelbaum");
 	    });
 	    this.shared_button_right = button3;
+	    
+	    Tooltips_für_Buttons.setTooltip_formelbaum(button3);
 	
 	    // Hinzufügen der Komponenten zur Sidebar
 	    local_sidebar.getChildren().addAll(formulaLabel, button2, button3);
@@ -401,11 +457,24 @@ public class SidebarHandler {
 
    
 	// Methode, die Sidebar entfernt
-	public void removeSidebar() {
+	public void removeSidebar(Pane drawing_Pane) {
+		
+		//merker der den Zustand der Sidebars speichert
+		boolean flag_side_bar_was_visible = side_bar_availible();
+
 	    // Entfernt den rechten Sidebar-Container
 	    removeSidebarContainer(this.sidebar_container_right);
+	    this.sidebar_container_right = null;
 	    // Entfernt den linken Sidebar-Container
 	    removeSidebarContainer(this.sidebar_container_left);
+	    this.sidebar_container_left = null;
+	    
+	  //gelb färben wenn Sidebars da waren 
+	    if(flag_side_bar_was_visible) {
+	    	this.circle_builder.colorAllCirclesYellow(drawing_Pane);
+	    }
+	    
+
 	}
 	
 	// Hilfsmethode, um einen gegebenen Sidebar-Container zu entfernen
@@ -419,7 +488,7 @@ public class SidebarHandler {
 	            
 	            // Entfernt den Formel-Baum-Stage, falls vorhanden
 	            if (this.formel_baum_stage != null) {
-	                pane.getChildren().remove(this.formel_baum_stage);
+	            	this.formel_baum_stage.close();
 	                this.formel_baum_stage = null;
 	            }
 	
@@ -428,9 +497,16 @@ public class SidebarHandler {
 	
 	            // Entfernt das Normalform-Pane, falls vorhanden
 	            if (this.normalformpane != null) {
-	                pane.getChildren().remove(this.normalformpane);
-	                this.normalformpane = null;
+	                Parent parent_ = this.normalformpane.getParent(); // Den Parent-Node ermitteln
+	                if (parent_ instanceof Pane) { // Sicherstellen, dass der Parent ein Pane ist
+	                    ((Pane) parent_).getChildren().remove(this.normalformpane);
+	                    System.out.println("Normalformpane wurde entfernt.");
+	                } else {
+	                    System.out.println("Parent ist kein Pane oder null.");
+	                }
+	                this.normalformpane = null; // Referenz zurücksetzen
 	            }
+
 	
 	            // Setzt die Sichtbarkeits-Flags zurück
 	            this.isSolutionNormalFormVisible = false;
@@ -468,4 +544,8 @@ public class SidebarHandler {
 
       });
    }
+
+	private boolean side_bar_availible() {
+		return sidebar_container_left != null || sidebar_container_right != null;
+	}
 }

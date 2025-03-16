@@ -9,7 +9,10 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
+
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.geometry.Insets;
@@ -79,6 +82,9 @@ public class GUI_zeichen_modus extends Application {
    protected List<SidebarHandler> sidebar_handler_list = new LinkedList();
    protected List<Arrow_Builder> arrow_builder_list = new LinkedList();
    protected List<AnchorPane> pane_list = new LinkedList();
+   
+   //Zum Überwachen der Vorauswahltransitionen
+   private boolean isUpdatingText;
 
    //Kosntruktor der auswählbare Zustandsformel erzeugt
    public GUI_zeichen_modus(boolean via_main) {
@@ -137,9 +143,10 @@ public class GUI_zeichen_modus extends Application {
             GUI_Main main_menu = new GUI_Main();
             main_menu.start(stage);
          }
-
          primaryStage.close();
       });
+      
+      Tooltips_für_Buttons.setTooltip_beenden_Modus(btnBeenden);
       
       //startet das Programm neu
       btnneustart.setOnAction((event) -> {
@@ -150,11 +157,10 @@ public class GUI_zeichen_modus extends Application {
             this.secondCircle = null;
             this.firstCircle_label = null;
             this.secondCircle_label = null;
-            Iterator var3 = this.sidebar_handler_list.iterator();
 
          //	 Iteration über sidebar_handler_liste
             for (SidebarHandler sidebar : sidebar_handler_list) {
-                sidebar.removeSidebar();
+                sidebar.removeSidebar(null);
             }
 
             // Iteration über arrow_builder_list
@@ -183,6 +189,8 @@ public class GUI_zeichen_modus extends Application {
 
       });
       
+      Tooltips_für_Buttons.setTooltip_neustart(btnneustart);
+      
       //Event um Berechnungen zu prüfen
       btnprüfen.setOnAction((event) -> {
     	  
@@ -197,11 +205,13 @@ public class GUI_zeichen_modus extends Application {
          List<HashSet<Zustand>> ergebnisListe = new LinkedList();
          int nichtLeereSets;
          
+         sidebar_handler_list = new LinkedList();
+         
          //Prüfe ob ein TS die Gleichung erfüllt und eines nicht
          for(nichtLeereSets = 0; nichtLeereSets < this.pane_list.size(); ++nichtLeereSets) {
         	 
         	 //schließt alle EingabeFelder
-            ((Circle_Group_Builder)this.circlebuilder_liste.get(nichtLeereSets)).schliesseAlleEingabefelder(root);
+            ((Circle_Group_Builder)this.circlebuilder_liste.get(nichtLeereSets)).bereite_berechnung_vor(root);
             
             //erzeugt SidebarHandler
             this.sidebar_handler_list.add(new SidebarHandler((Circle_Group_Builder)this.circlebuilder_liste.get(nichtLeereSets)));
@@ -223,7 +233,6 @@ public class GUI_zeichen_modus extends Application {
             ergebnisListe.add((HashSet)zustandsformel.get_Lösungsmenge(ts));
          }
          
-         
          nichtLeereSets = 0;
          int leereSets = 0;
          
@@ -244,10 +253,10 @@ public class GUI_zeichen_modus extends Application {
             alert.setContentText("Herzlichen Glückwunsch, die Aufgabe ist korrekt!");
          } else if (leereSets == 2) {
             alert.setHeaderText("Ergebnis: Keine Übereinstimmung");
-            alert.setContentText("Leider erfüllt keines der Transitionssysteme die CTL-Formel.");
+            alert.setContentText("Leider erfüllt keine Zustand in keinem der Transitionssysteme die CTL-Formel.");
          } else if (nichtLeereSets > 1) {
             alert.setHeaderText("Ergebnis: Mehrfachübereinstimmung");
-            alert.setContentText("Leider erfüllen beide Transitionssysteme die CTL-Formel.");
+            alert.setContentText("Leider erfüllen Zustände in beiden Transitionssystemen die CTL-Formel.");
          } else {
             alert.setHeaderText("Ergebnis: Fehlerhafte Eingabe");
             alert.setContentText("Leider war ihre Eingabe unvollständig");
@@ -255,6 +264,8 @@ public class GUI_zeichen_modus extends Application {
 
          alert.showAndWait();
       });
+      
+      Tooltips_für_Buttons.setTooltip_prüfen(btnprüfen);
       
       //füge Buttons zu Layout hinzu
       HBox main_button_box = new HBox(20.0D);
@@ -265,15 +276,47 @@ public class GUI_zeichen_modus extends Application {
       Label label = new Label("Transitionen vorauswählen (getrennt durch Komma): ");
       TextField eingabeFeld = new TextField();
       
-      //Listner der die Lsite automatisch befüllt
       eingabeFeld.textProperty().addListener((observable, oldValue, newValue) -> {
-         if (!newValue.isEmpty()) {
-            this.vorauswahl_transitionen = new ArrayList(Arrays.asList(newValue.split(",")));
-         } else {
-            this.vorauswahl_transitionen = new ArrayList();
-         }
-
-      });
+    	try {
+	          if (isUpdatingText) {
+	              return; // Verhindert rekursive Aufrufe, wenn der Text programmiert geändert wird
+	          }
+	          
+	  	    if (!newValue.isEmpty()) {
+	  	        List<String> transitionen = Arrays.asList(newValue.split(","));
+	
+	  	        // Überprüfung: Kein Element darf leer sein und es müssen nur einzelne Zeichen sein
+	  	        if (transitionen.stream().allMatch(t -> t.trim().length() == 1 && !t.trim().isEmpty())) {
+	  	            this.vorauswahl_transitionen = new ArrayList<>(transitionen.stream().map(String::trim).collect(Collectors.toList()));
+	  	        } else {
+	  	            this.vorauswahl_transitionen.clear();
+	
+	  	            // Clear asynchron ausführen, um die Exception zu vermeiden
+	                // Asynchrone Korrektur, falls nötig
+	                Platform.runLater(() -> {
+	                    isUpdatingText = true; // Schutzschalter aktivieren
+	                    eingabeFeld.clear();
+	                    isUpdatingText = false; // Schutzschalter deaktivieren
+	                });  	            
+	  	            showAlert("Ungültige Eingabe", "Bitte geben Sie nur einzelne Zeichen ein, getrennt durch Komma.",Alert.AlertType.WARNING);
+	  	        }
+	  	    } else {
+	  	    	
+	            // Leere Eingabe: Übergangsliste zurücksetzen
+	            vorauswahl_transitionen.clear();
+	            
+	  	    	// Clear asynchron ausführen, um die Exception zu vermeiden
+	            Platform.runLater(() -> {
+	                isUpdatingText = true; // Schutzschalter aktivieren
+	                eingabeFeld.clear();
+	                isUpdatingText = false; // Schutzschalter deaktivieren
+	            });
+	  	    }
+    	}catch (IllegalArgumentException e) {
+          // Exception ignorieren, da diese Programmablauf nciht beienflusst
+      } 
+  	});
+      Tooltips_für_Buttons.setTooltip_globale_Transition(label);
       
       //Positionieren der Vorauswahl
       HBox eingabeBox = new HBox(10.0D);
@@ -290,7 +333,7 @@ public class GUI_zeichen_modus extends Application {
       comboBox.setOnAction((e) -> {
          this.selectedFormula = (String)comboBox.getSelectionModel().getSelectedItem();
          if (this.selectedFormula != null) {
-            selectedFormulaLabel.setText("Zeichne zwei Transitionssysteme von denen eins die CTL-Formel: " + this.selectedFormula + " erfüllen soll und eins nicht");
+            selectedFormulaLabel.setText("Zeichne zwei Transitionssysteme, im Linken soll mindestens ein Zustand die CTL-Formel: " + this.selectedFormula + " erfüllen und im Rechten keiner");
             root.getChildren().remove(comboBoxContainer);
             root.setTop(gesamte_box);
             root.setBottom(this.createDrawingPaneContainer());
@@ -365,12 +408,7 @@ public class GUI_zeichen_modus extends Application {
 	        //toggled Relations-Button, und färbt Kreise gelb
 	        if (this.draw_relations.get()) {
 	            btnRelation.setText("Einzeichnen Beenden");
-	            drawingPane.lookupAll(".circle_with_text").forEach((node) -> {
-	                Group group = (Group)node;
-	                if (group.getChildren().get(0) instanceof Circle) {
-	                    ((Circle)group.getChildren().get(0)).setFill(Color.YELLOW);
-	                }
-	            });
+	            circle_builder.colorAllCirclesYellow(drawingPane);
 	        } else {
 	        	//färbt Kreise und ändert Button-Bschriftung
 	        	btnRelation.setText("Transitionen einzeichnen");
@@ -387,9 +425,11 @@ public class GUI_zeichen_modus extends Application {
 	        this.draw_relations.set(false);
 
 	        for(SidebarHandler sidebar: this.sidebar_handler_list) {
-	            sidebar.removeSidebar();
+	            sidebar.removeSidebar(null);
 	        }
 	    });
+	    
+	    Tooltips_für_Buttons.setTooltip_Ts_loeschen(btnTS_entfernen);
 	    
 	    // Fügt einen neuen Kreis hinzu
 	    btnAddCircle.setOnAction((e) -> {
@@ -410,9 +450,11 @@ public class GUI_zeichen_modus extends Application {
 	        
 	        //entfernt alle Sidebars
 	        for(SidebarHandler sidebar:this.sidebar_handler_list) {
-	            sidebar.removeSidebar();
+	            sidebar.removeSidebar(null);
 	        }
 	    });
+	    
+	    Tooltips_für_Buttons.setTooltip_neuerZustand(btnAddCircle);
 	    
 	    // Aktiviert/deaktiviert das Einzeichnen von Relationen.
 	    btnRelation.setOnAction((e) -> {
@@ -420,10 +462,15 @@ public class GUI_zeichen_modus extends Application {
 	        this.draw_relations.set(!this.draw_relations.get());
 	        
 	        //entferne alle Sidebars
+	        //entfernt alle Sidebars
 	        for(SidebarHandler sidebar:this.sidebar_handler_list) {
-	            sidebar.removeSidebar();
+	            sidebar.removeSidebar(null);
 	        }
+	        
+	        sidebar_handler_list = new LinkedList();
 	    });
+	    
+	    Tooltips_für_Buttons.setTooltip_relation_einzeichen(btnRelation);
 
 	    // Anker-Layout für das Setzen der Elemente im Zeichenbereich.
 	    AnchorPane root = new AnchorPane();
@@ -472,6 +519,7 @@ public class GUI_zeichen_modus extends Application {
 	            if (this.firstParentPane == this.secondParentPane) {
 	                this.inputActive = true;
 	                arrow_builder.drawArrow(parentPane, this.firstCircle, this.secondCircle, this.firstCircle_label, this.secondCircle_label, this.vorauswahl_transitionen);
+	                
 	            } 
 	            //Wenn aus verschiedenen Panes Warning ausgeben
 	            else {
@@ -491,9 +539,10 @@ public class GUI_zeichen_modus extends Application {
 	        }
 	    }
 	}
+	
 
 	// Zeigt eine Nachricht in einer Alert-Box an.
-	private void showAlert(String title, String message, Alert.AlertType alertType) {
+	protected void showAlert(String title, String message, Alert.AlertType alertType) {
 	    Alert alert = new Alert(alertType);
 	    alert.setTitle(title);
 	    alert.setHeaderText((String)null);

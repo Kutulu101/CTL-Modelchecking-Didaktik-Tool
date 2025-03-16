@@ -8,6 +8,10 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -31,6 +35,9 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
    private String selectedFormula;
    //Sammlung der möglichen Aufgaben
    private HashSet<EquationPair> zustandsformeln;
+   
+   //Zum Überwachen der Vorauswahltransitionen
+   private boolean isUpdatingText;
 
    //Konstruktor
    public GUI_Inequiv(boolean via_main) {
@@ -43,7 +50,7 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
       this.zustandsformeln = new HashSet();
       this.zustandsformeln.add(new EquationPair("∃□∃◇(〈a〉1∧¬〈b〉1)", "∃◇∃□(〈a〉1∧¬〈b〉1)"));
       this.zustandsformeln.add(new EquationPair("∃(〈a〉1∨〈b〉1)U〈c〉1", "(∃〈a〉1U〈c〉1)∨(∃〈b〉1 U〈c〉1)"));
-      this.zustandsformeln.add(new EquationPair("∃¬〈a〉1U(〈b〉1∧〈c〉1)", "(∃¬〈a〉1U〈b〉1)∧(∃¬〈a〉1U〈c〉1)"));
+      this.zustandsformeln.add(new EquationPair( "(∃¬〈a〉1U〈b〉1)∧(∃¬〈a〉1U〈c〉1)","∃¬〈a〉1U(〈b〉1∧〈c〉1)"));
       this.zustandsformeln.add(new EquationPair("∃□〈a〉1", "∃□[a]1"));
    }
 
@@ -87,6 +94,8 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
          primaryStage.close();
       });
       
+      Tooltips_für_Buttons.setTooltip_beenden_Modus(btnBeenden);
+      
       //Startet Programm neu
       btnneustart.setOnAction((event) -> {
          try {
@@ -99,7 +108,7 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
             this.secondCircle_label = null;
 
             for(SidebarHandler sidebar:this.sidebar_handler_list) {
-               sidebar.removeSidebar();
+               sidebar.removeSidebar(null);
             }
 
             for(Arrow_Builder arrow_builder:this.arrow_builder_list) {
@@ -128,17 +137,21 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
 
       });
       
+      Tooltips_für_Buttons.setTooltip_neustart(btnneustart);;
+      
     //Button der die gemachten Eingaben prüft
       btnprüfen.setOnAction((event) -> {
     	  
     	  //schließt alle EingabeFelder
-         ((Circle_Group_Builder)this.circlebuilder_liste.get(0)).schliesseAlleEingabefelder(root);
+         ((Circle_Group_Builder)this.circlebuilder_liste.get(0)).bereite_berechnung_vor(root);
          //bendet Einzeichnen der Relationen
          this.draw_relations.set(false);
          
+         sidebar_handler_list = new LinkedList();
+         
          //Erzeugt zwei Zustandsformeln linke und rechte Seite
-         Zustandsformel zustandsformel_links = new Zustandsformel(this.selectedFormula.split(" ≡ ")[0]);
-         Zustandsformel zustandsformel_rechts = new Zustandsformel(this.selectedFormula.split(" ≡ ")[1]);
+         Zustandsformel zustandsformel_links = new Zustandsformel(this.selectedFormula.split(" ≢ ")[0]);
+         Zustandsformel zustandsformel_rechts = new Zustandsformel(this.selectedFormula.split(" ≢ ")[1]);
          
          //Erzeugt einen Sidebar-Handler pro CTL-Formel
          this.sidebar_handler_list.add(new SidebarHandler((Circle_Group_Builder)this.circlebuilder_liste.get(0)));
@@ -157,28 +170,31 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
          //prüft ob die Aufgabe korrekt erfüllt wurde und zeigt Msg-Box an
          HashSet<Zustand> lösungsmenge_rechts = (HashSet)zustandsformel_rechts.get_Lösungsmenge(ts);
          HashSet<Zustand> lösungsmenge_links = (HashSet)zustandsformel_links.get_Lösungsmenge(ts);
+         boolean z1_in_links = lösungsmenge_links.stream().anyMatch(z -> "z1".equals(z.getName()));
+         boolean z1_in_rechts = lösungsmenge_rechts.stream().anyMatch(z -> "z1".equals(z.getName()));
+
          Alert alert = new Alert(Alert.AlertType.INFORMATION);
          alert.setTitle("Ergebnis der Überprüfung");
-         
-         if (lösungsmenge_links.size() > 0 && lösungsmenge_rechts.size() == 0) {
-            alert.setHeaderText("Ergebnis: Aufgabe korrekt");
-            alert.setContentText("Herzlichen Glückwunsch, die Aufgabe ist korrekt!");
-         }
-         else if (lösungsmenge_links.size() == 0 && lösungsmenge_rechts.size() == 0) {
-            alert.setHeaderText("Ergebnis: Keine Übereinstimmung");
-            alert.setContentText("Leider erfüllt kein Zustand der Transitionssysteme die CTL-Formel.");
-         } 
-         else if (lösungsmenge_links.size() > 0 && lösungsmenge_rechts.size() > 0) {
-            alert.setHeaderText("Ergebnis: Mehrfachübereinstimmung");
-            alert.setContentText("Leider erfüllen Zustände im Tansitionssysteme beide CTL-Formeln.");
-         } 
-         else {
-            alert.setHeaderText("Ergebnis: Fehlerhafte Eingabe");
-            alert.setContentText("Leider war ihre Eingabe unvollständig");
+
+         if (z1_in_links && !z1_in_rechts) {
+             alert.setHeaderText("Ergebnis: Aufgabe korrekt");
+             alert.setContentText("Herzlichen Glückwunsch, der Zustand 'z1' ist nur in der linken Lösungsmenge!");
+         } else if (lösungsmenge_links.isEmpty() && lösungsmenge_rechts.isEmpty()) {
+             alert.setHeaderText("Ergebnis: Keine Übereinstimmung");
+             alert.setContentText("Leider erfüllt kein Zustand der Transitionssysteme die CTL-Formel.");
+         } else if (!lösungsmenge_links.isEmpty() && !lösungsmenge_rechts.isEmpty()) {
+             alert.setHeaderText("Ergebnis: Mehrfachübereinstimmung");
+             alert.setContentText("Leider erfüllen Zustände in beiden Transitionssystemen die CTL-Formeln.");
+         } else {
+             alert.setHeaderText("Ergebnis: Fehlerhafte Eingabe");
+             alert.setContentText("Leider war Ihre Eingabe unvollständig oder fehlerhaft.");
          }
 
          alert.showAndWait();
+
       });
+      
+      Tooltips_für_Buttons.setTooltip_prüfen(btnprüfen);
       
       //Füge Button zu Layout hinzu
       HBox main_button_box = new HBox(20.0);
@@ -189,13 +205,46 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
       Label label = new Label("Transitionen vorauswählen (getrennt durch Komma): ");
       TextField eingabeFeld = new TextField();
       eingabeFeld.textProperty().addListener((observable, oldValue, newValue) -> {
-         if (!newValue.isEmpty()) {
-            this.vorauswahl_transitionen = new ArrayList(Arrays.asList(newValue.split(",")));
-         } else {
-            this.vorauswahl_transitionen = new ArrayList();
-         }
-
-      });
+    	  try {
+	          if (isUpdatingText) {
+	              return; // Verhindert rekursive Aufrufe, wenn der Text programmiert geändert wird
+	          }
+	          
+	    	    if (!newValue.isEmpty()) {
+	    	        List<String> transitionen = Arrays.asList(newValue.split(","));
+	
+	    	        // Überprüfung: Kein Element darf leer sein und es müssen nur einzelne Zeichen sein
+	    	        if (transitionen.stream().allMatch(t -> t.trim().length() == 1 && !t.trim().isEmpty())) {
+	    	            this.vorauswahl_transitionen = new ArrayList<>(transitionen.stream().map(String::trim).collect(Collectors.toList()));
+	    	        } else {
+	    	            this.vorauswahl_transitionen.clear();
+	
+	    	            // Clear asynchron ausführen, um die Exception zu vermeiden
+	                    Platform.runLater(() -> {
+	                        isUpdatingText = true; // Schutzschalter aktivieren
+	                        eingabeFeld.clear();
+	                        isUpdatingText = false; // Schutzschalter deaktivieren
+	                    });  	            
+	    	            showAlert("Ungültige Eingabe", "Bitte geben Sie nur einzelne Zeichen ein, getrennt durch Komma.",Alert.AlertType.WARNING);
+	    	        }
+	    	    } else {
+	    	    	
+	                // Leere Eingabe: Übergangsliste zurücksetzen
+	                vorauswahl_transitionen.clear();
+	                
+	    	    	// Clear asynchron ausführen, um die Exception zu vermeiden
+	                Platform.runLater(() -> {
+	                    isUpdatingText = true; // Schutzschalter aktivieren
+	                    eingabeFeld.clear();
+	                    isUpdatingText = false; // Schutzschalter deaktivieren
+	                });
+	    	    }
+		  	}catch (IllegalArgumentException e) {
+		        // Exception ignorieren, da diese Programmablauf nciht beienflusst
+		    } 
+    	});
+      
+      Tooltips_für_Buttons.setTooltip_globale_Transition(label);
       
       //LAyout von Transitionsvorauswahl
       HBox eingabeBox = new HBox(10.0);
@@ -210,7 +259,7 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
       comboBox.setOnAction((e) -> {
          this.selectedFormula = (String)comboBox.getSelectionModel().getSelectedItem();
          if (this.selectedFormula != null) {
-            selectedFormulaLabel.setText("Zeichne ein Transitionssysteme, welches die linke Gleichung erfüllt, aber nicht die Rechte: " + this.selectedFormula);
+            selectedFormulaLabel.setText("Zeichne ein Transitionssystem,in dem z1 die linke Gleichung erfüllt, aber nicht die Rechte: " + this.selectedFormula);
             selectedFormulaLabel.setAlignment(Pos.CENTER);
             root.getChildren().remove(comboBoxContainer);
             root.setTop(gesamte_box);
@@ -246,6 +295,8 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
       launch(args);
    }
    
+
+   
    //Hilfsklasse um zwei CTL-Gleichungen zu verbinden
    class EquationPair {
 	   private final String leftSide;
@@ -265,7 +316,7 @@ public class GUI_Inequiv extends GUI_zeichen_modus {
 	   }
 
 	   public String toString() {
-	      return this.leftSide + " ≡ " + this.rightSide;
+	      return this.leftSide + " ≢ " + this.rightSide;
 	   }
 	}
 }

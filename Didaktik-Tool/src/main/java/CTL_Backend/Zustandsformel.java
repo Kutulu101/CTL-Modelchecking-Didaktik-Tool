@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
+import java.util.Stack;
 
 //Klasse dien ganze Zustandsformel repräsentiert und verwaltet
 public class Zustandsformel {
@@ -18,7 +19,7 @@ public class Zustandsformel {
 	private String formel_string_normal_form = "";
 	
 	//Zustandsformel ist rekursiv über die erfüllenden Mengen definiert
-	private erfüllende_Mengen Start_der_rekursiven_Definition;
+	private ErfüllendeMenge Start_der_rekursiven_Definition;
 	
 	//efüllende Menge der gesamten Gleichung
 	private Set<Zustand> lösungsmenge = new HashSet<>();
@@ -72,6 +73,8 @@ public class Zustandsformel {
 	    // Initialisiere formel_string_normal_form als formel_string
 	    this.formel_string_normal_form = this.formel_string;
 	    
+	    this.formel_string_normal_form .replace("Formelende", "");
+	    
 	    // Liste zur Speicherung aller Ersetzungen
 	    this.ersetzungen = new ArrayList<>();
 	    
@@ -90,14 +93,44 @@ public class Zustandsformel {
 	            changed = true;
 	            // Erzeuge Ersetzungs-Objekt und füge es der Liste hinzu
 	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Regel 1: Ersetze ∀○ mit ¬∃○¬"));
+	            continue;
 	        }
 	        
-	     // Regel 2: Wenn ∀psiUgamma enthalten ist, ersetze mit ¬∃□¬psi∧¬∃□¬psiU(¬psi∧¬gamma)
+        
+	        //Regel 3: Wenn ∀□ enthalten ist, ersetze mit ¬∃1U¬
+	        if (this.formel_string_normal_form.contains("∀□")) {
+	            int index = this.formel_string_normal_form.indexOf("∀□");
+	            this.formel_string_normal_form = this.formel_string_normal_form.replace("∀□", "¬∃1U¬");
+	            changed = true;
+	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Regel 3: Ersetze ∀□ mit ¬∃1U¬"));
+	            continue;
+	        }
+	
+	        //Regel 4: Wenn ∃◇ enthalten ist, ersetze mit ∃1U
+	        if (this.formel_string_normal_form.contains("∃◇")) {
+	            int index = this.formel_string_normal_form.indexOf("∃◇");
+	            this.formel_string_normal_form = this.formel_string_normal_form.replace("∃◇", "∃1U");
+	            changed = true;
+	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Regel 4: Ersetze ∃◇ mit ∃1U"));
+	            continue;
+	        }
+	
+	        //Regel 5: Wenn ∀◇ enthalten ist, ersetze mit ¬∃□¬
+	        if (this.formel_string_normal_form.contains("∀◇")) {
+	            int index = this.formel_string_normal_form.indexOf("∀◇");
+	            this.formel_string_normal_form = this.formel_string_normal_form.replace("∀◇", "¬∃□¬");
+	            changed = true;
+	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Regel 5: Ersetze ∀◇ mit ¬∃□¬"));
+	            continue;
+	        }
+	        
+	        //Diese Regel hat, den Nachzug nach den anderen Regeln für Quantoren, weil ansonsten z.B bei ∀◇∃1U1 das ∃ Übergangen werden würde
+		     // Regel 2: Wenn ∀ϕUψ enthalten ist, ersetze mit ¬∃□¬ϕ∧¬∃□¬ϕU(¬ϕ∧¬ψ)
 	        if (this.formel_string_normal_form.contains("U")) {
 	            int indexU = this.formel_string_normal_form.indexOf("U");
 
-	            // Suche den Teil links von U (psi), beginnend mit ∀
-	            String psi = "";
+	            // Suche den Teil links von U (ϕ), beginnend mit ∀
+	            String ϕ = "";
 	            int leftIndex = indexU - 1;
 	            boolean foundForAll = false;
 
@@ -110,433 +143,168 @@ public class Zustandsformel {
 	                leftIndex--;
 	            }
 
-	            // Wenn ∀ gefunden wurde, speichere psi
+	            // Wenn ∀ gefunden wurde, speichere ϕ
 	            if (foundForAll) {
-	                psi = this.formel_string_normal_form.substring(leftIndex + 1, indexU).trim();
-	             // Suche den Teil rechts von U (gamma), gehe bis zum Ende der Formel
-		            String gamma = this.formel_string_normal_form.substring(indexU + 1).trim();
+	            	
+	            	//extrahiere ϕ
+	                ϕ = "("+this.formel_string_normal_form.substring(leftIndex + 1, indexU).trim()+")";
 
-		            // Ersetze ∀psiUgamma durch ¬∃□¬psi∧¬∃□¬psiU(¬psi∧¬gamma)
-		            String ersatz = "¬∃□¬" + psi + "∧¬∃□¬" + psi + "U(¬" + psi + "∧¬" + gamma + ")";
+	                // Suche den Teil rechts von U (psi), mit Beachtung der Klammerung
+	                String ψ = "";
+	                int rightIndex = indexU + 1;
+	                int parenthesesCounter = 0;
+	                boolean boundaryFound = false;
+
+	                while (rightIndex < this.formel_string_normal_form.length()) {
+	                    char currentChar = this.formel_string_normal_form.charAt(rightIndex);
+
+	                    // Klammerzähler erhöhen oder verringern
+	                    if (currentChar == '(') {
+	                        parenthesesCounter++;
+	                    } else if (currentChar == ')') {
+	                        parenthesesCounter--;
+	                    }
+
+	                    // Grenze finden, wenn Klammerzähler 0 ist und ein ∧ oder ∨ auftritt
+	                    if ((currentChar == '∧' || currentChar == '∨') && parenthesesCounter == 0) {
+	                        boundaryFound = true;
+	                        break;
+	                    }
+
+	                    rightIndex++;
+	                }
+
+	                // Bestimme psi basierend auf der gefundenen Grenze
+	                if (boundaryFound) {
+	                    ψ = "("+this.formel_string_normal_form.substring(indexU + 1, rightIndex).trim()+")";
+	                } else {
+	                    ψ = "("+this.formel_string_normal_form.substring(indexU + 1).trim()+")";
+	                }
+
+
+		            // Ersetze ∀ϕUψ durch ¬∃□¬ϕ∧¬∃¬ϕU(¬ϕ∧¬ψ)
+		            String ersatz = "¬∃□¬" + ψ + "∧¬∃¬" + ψ + "U(¬" + ϕ + "∧¬" + ψ + ")";
 
 		            // Aktualisiere die Formel mit dem ersetzten Ausdruck
-		            this.formel_string_normal_form = this.formel_string_normal_form.substring(0, leftIndex) + ersatz;
+		            this.formel_string_normal_form = this.formel_string_normal_form.substring(0, leftIndex) + ersatz + this.formel_string_normal_form.substring(rightIndex);
 		            changed = true;
-		            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, leftIndex, indexU + gamma.length(), "Regel 2: Ersetze ∀psiUgamma mit ¬∃□¬psi∧¬∃□¬psiU(¬psi∧¬gamma)"));
-	            }       
+		            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, leftIndex, indexU + ψ.length(), "Regel 2: Ersetze ∀ϕUψ mit ¬∃□¬ϕ∧¬∃□¬ϕU(¬ϕ∧¬ψ)"));
+		            continue;
+	            } 
 	        }
 	        
-	        //Regel 3: Wenn ∀□ enthalten ist, ersetze mit ¬∃1U¬
-	        if (this.formel_string_normal_form.contains("∀□")) {
-	            int index = this.formel_string_normal_form.indexOf("∀□");
-	            this.formel_string_normal_form = this.formel_string_normal_form.replace("∀□", "¬∃1U¬");
-	            changed = true;
-	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Regel 3: Ersetze ∀□ mit ¬∃1U¬"));
-	        }
-	
-	        //Regel 4: Wenn ∃◇ enthalten ist, ersetze mit ∃1U
-	        if (this.formel_string_normal_form.contains("∃◇")) {
-	            int index = this.formel_string_normal_form.indexOf("∃◇");
-	            this.formel_string_normal_form = this.formel_string_normal_form.replace("∃◇", "∃1U");
-	            changed = true;
-	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Regel 4: Ersetze ∃◇ mit ∃1U"));
-	        }
-	
-	        //Regel 5: Wenn ∀◇ enthalten ist, ersetze mit ¬∃□¬
-	        if (this.formel_string_normal_form.contains("∀◇")) {
-	            int index = this.formel_string_normal_form.indexOf("∀◇");
-	            this.formel_string_normal_form = this.formel_string_normal_form.replace("∀◇", "¬∃□¬");
-	            changed = true;
-	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Regel 5: Ersetze ∀◇ mit ¬∃□¬"));
-	        }
-	        
-	     // Regel 6: Wenn psi∨gamma enthalten ist, ersetze mit ¬(¬psi∧¬gamma) 
+	     // Regel 6: Wenn ϕ∨ψ enthalten ist, ersetze mit ¬(¬ϕ∧¬ψ) 
 	        if (this.formel_string_normal_form.contains("∨")) {
+	        	
 	            int index = this.formel_string_normal_form.indexOf("∨");
 
-	            // Suche den Teil links von ∨ (psi)
-	            String leftPart = "";
-	            int leftIndex = index - 1;
+	            // Finde den linken und rechten Teil
+	            markiereLinkenTeil(index);
+	            markiereRechtenTeil(index+5); // +5
 
-	            // Zähle die Klammern im linken Teil
-	            int openCount = 0;
-	            int closeCount = 0;
+	            // Extrahiere die markierten Teile
+	            int leftStart = this.formel_string_normal_form.indexOf("links");
+	            int leftEnd = this.formel_string_normal_form.indexOf("rechts");
+	            
+	            index = this.formel_string_normal_form.indexOf("∨");
 
-	            // Durchlaufe den linken Teil bis zum Anfang des Strings
-	            while (leftIndex >= 0) {
-	                char currentChar = this.formel_string_normal_form.charAt(leftIndex);
-	                if (currentChar == '(') {
-	                    openCount++;
-	                } else if (currentChar == ')') {
-	                    closeCount++;
-	                }
-	                leftIndex--;
-	            }
+	            String leftPart = this.formel_string_normal_form.substring(leftStart + 5, index).trim();
+	            String rightPart = this.formel_string_normal_form.substring(index + 1, leftEnd).trim();
 
-	            // Setze den leftIndex wieder auf den ursprünglichen Wert
-	            leftIndex = index - 1;
+	            // Entferne die Markierungen "links" und "rechts"
+	            this.formel_string_normal_form = this.formel_string_normal_form.replace("links", "").replace("rechts", "");
 
-	            // Prüfe die Anzahl der Klammern und bestimme, wo ¬(¬ eingefügt werden soll
-	            if (openCount > closeCount) {
-	                // Es gibt mehr öffnende als schließende Klammern
-	                // Suche die letzte öffnende Klammer im linken Teil
-	                int lastOpenParenIndex = this.formel_string_normal_form.lastIndexOf("(", index);
-	                leftPart = this.formel_string_normal_form.substring(0, lastOpenParenIndex + 1) + "¬(¬" + this.formel_string_normal_form.substring(lastOpenParenIndex + 1, index);
-	            } else {
-	                // Es gibt gleich viele oder mehr schließende Klammern
-	                leftPart = "¬(¬" + this.formel_string_normal_form.substring(0, index);
-	            }
+	            // Teile vor und nach dem Ausdruck beibehalten
+	            String prefix = this.formel_string_normal_form.substring(0, leftStart).trim();
+	            String suffix = this.formel_string_normal_form.substring(leftEnd-5).trim(); // eglt +5 weil aber links und rechts enfternt werden +5-10
+	            
+	            // Ersetze ∨ durch die Negationsregel
+	            String ersetzterAusdruck = "¬(¬" + "("+leftPart+")" + "∧¬" + "("+rightPart +")"+ ")";
+	            this.formel_string_normal_form = (prefix + ersetzterAusdruck+ suffix).trim();
 
-	            // Suche den Teil rechts von ∨ (gamma)
-	            String rightPart = "";
-	            int rightIndex = index + 1;
-	            if (this.formel_string_normal_form.charAt(rightIndex) == '(') {
-	                // Finde die zugehörige schließende Klammer
-	                int closeParenIndex = this.formel_string_normal_form.indexOf(")", rightIndex);
-	                rightPart = this.formel_string_normal_form.substring(index + 1, closeParenIndex + 1);
-	                // Ergänze ) nach gamma
-	                rightPart = "¬" + rightPart + ")";
-	            } else {
-	                // Wenn keine Klammer, dann alles rechts von ∨ als gamma betrachten
-	                rightPart = "¬" + this.formel_string_normal_form.substring(index + 1) + ")";
-	            }
-
-	            // Ersetze ∨ durch ∧ und verbinde psi und gamma
-	            this.formel_string_normal_form = leftPart + "∧" + rightPart;
 	            changed = true;
-	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Regel 6: Ersetze psi∨gamma mit ¬(¬psi∧¬gamma)"));
+	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index,
+	                    "Regel 6: Ersetze ϕ∨ψ mit ¬(¬ϕ∧¬ψ)"));
+	            continue;
+	        }
+	        
+	      //Entfernt Doppelte Negation Wenn ¬¬ enthalten ist, ersetze mit ""
+	        if (this.formel_string_normal_form.contains("¬¬")) {
+	            int index = this.formel_string_normal_form.indexOf("¬¬");
+	            this.formel_string_normal_form = this.formel_string_normal_form.replace("¬¬", "");
+	            changed = true;
+	            ersetzungen.add(new Umformung(original, this.formel_string_normal_form, index, index, "Doppelte Negation löst sich auf ¬¬"));
+	            continue;
 	        }
 	        
 	    } while (changed);  // Wiederhole, solange Änderungen vorgenommen wurden
 	 }
 	 
-	 //Methode die aus dem String die rekursive Definiton über erfüllende Mengen zusammenbaut
-	// Idee: Zustandsformel in kleinere Formeln  aufteilen z.B an den Stellen 1 oder 0 oder E.....U
-	 //--> erst alle Formel die auf 0 und 1 enden zusammenbauen, dannach die Formel mit den Verzwiegungen kombinieren
-	 public void turn_string_into_recursive_ctl() {
-		 
-	    // Wenn formel_string_normal_form leer ist, zuerst turn_to_normal_form() aufrufen
-	    if (formel_string_normal_form.equals("")) {
-	        this.turn_to_normal_form();
-	    }
-	    
-	    //letzte erfüllende Menge muss gepseichert und übergeben werden
-	    erfüllende_Mengen letzte_erfüllende_Menge = null;
+	 //Hilfsmehthode für das ersetzten von ODER
+	 private void markiereLinkenTeil(int index) {
+		    int leftIndex = index - 1;
+		    int klammerBalance = 0;
+		    char prevChar = ' '; // Variable zur Speicherung des vorherigen Zeichens
 
-	    
-	    // Ersetze "Formelende" mit einer leeren Zeichenfolge
-	    String bereinigterFormelString = formel_string_normal_form.replace("Formelende", "");
-	    
-	    //entferne geschweifte Klammern
-	    bereinigterFormelString = bereinigterFormelString.replace("{", "");
-	    bereinigterFormelString = bereinigterFormelString.replace("}", "");
-	    
-        // Splitte den String in 1 und 0 und ∃ (aber nur wenn ∃ zu einem U gehört) und ( auf
-	    List<String> liste_zustandformeln = new ArrayList<>(Arrays.asList(
-	    	    bereinigterFormelString.split("(?<=1)|(?<=0)|(?<=∃)(?![○□])|(?=\\()")
-	    	));
-	    
-	    
-		 //Workaround wenn ein E oder ) oder ( alleine stehen würde kommt es zum nächsten String dazu
-	    for (int i = 0; i < liste_zustandformeln.size() - 1; i++) {
-	        String current = liste_zustandformeln.get(i).trim();
-	        String next = liste_zustandformeln.get(i + 1).trim();
+		    while (leftIndex >= 0) {
+		        char currentChar = this.formel_string_normal_form.charAt(leftIndex);
 
-	        // Prüfen ob das aktuelle Element nur aus '∃', ')', 'U' oder '(' besteht
-	        // oder ob das nächste Element nur ")" enthält
-	        if (current.matches("[∃()U]+") || next.matches("[)]+")) {
-	            // Verbinde das aktuelle Element mit dem nächsten Eintrag
-	            liste_zustandformeln.set(i, current + next);
-	            liste_zustandformeln.remove(i + 1);  // Entferne den nächsten Eintrag, da er jetzt zusammengeführt wurde
-	            i--; // Reduziere den Index um 1, um sicherzustellen, dass die Liste korrekt weiter verarbeitet wird
-	        }
-	    }
-	    
-	    //abspeichern der Zeichen nach dem Split, sollte U oder UND , E oder Klammer sein um nachher leichter darauf zugreifen zu können
-	    List<Character> ersteZeichenNachSplit = new ArrayList<>(Collections.nCopies(liste_zustandformeln.size(), null));
-	   
-	    //Liste zum abspeichern der einzelnen Startpunkte der gespiltteten erfüllenden Menge, gleiche Länge wie liste_zustandsformeln
-	    List<erfüllende_Mengen> startpunkte_erfüllende_mengen = new ArrayList<>(Collections.nCopies(liste_zustandformeln.size(), null)); // Liste vorinitialisieren
+		        if (currentChar == ')') {
+		            klammerBalance++;
+		        } else if (currentChar == '(') {
+		            klammerBalance--;
+		        }
 
-	    
-	    // Durchlaufe jede Zustandsformel in der Liste um diese in erfüllende Mengen umzuwandeln
-	    for (int j = liste_zustandformeln.size() - 1; j >= 0; j--) {
-	    	
-	        String zustandsformel = liste_zustandformeln.get(j);
-	        
-	    	//Speichere das erste Zeichen ab, außer es ist eine schließende Kalmmer dann das zweite
-	        if (zustandsformel.length() >= 2 && zustandsformel.charAt(0) == ')') {
-	        	String zustandsformelOhneKlammern = zustandsformel.replaceFirst("^\\)+", "");
-	        	ersteZeichenNachSplit.set(j,zustandsformelOhneKlammern.charAt(0));
-	        }else ersteZeichenNachSplit.set(j,zustandsformel.charAt(0));
-	    		
-	        letzte_erfüllende_Menge = null;
-	         
-	        
-	        // Durchlaufe die aktuelle Zustandsformel von rechts nach links, starte bei length-2 weil 0 oder 1 bei behalten wird, außerdem läuft nur bis 1 weil die erste Stelle ja den Split anzeigt
-	        for (int i = zustandsformel.length() - 1; i >= 0; i--) {
-	            char currentChar = zustandsformel.charAt(i);
-	            
-	            if (currentChar == '1') {
-	                letzte_erfüllende_Menge = new one();
-	                continue;
-	            } 
-	            
-	            if (currentChar == '0') {
-	                letzte_erfüllende_Menge = new null_();
-	                continue;
-	            } 
+		        // Wenn die Klammerbalance negativ wird, haben wir eine Klammerüberspannung über dem Oder,
+		        // die überspannende Klammer muss durch -(- ersetzt werden
+		        if (klammerBalance < 0) {
+		            break;
+		        }
 
-	            
-	            
-	            // 1. Wenn der aktuelle Char eine schließende Klammer `〉` ist
-	            if (currentChar == '〉') {
-	                // Finde die passende öffnende Klammer `〈`
-	                int matchingBracketIndex = findMatchingOpenBracket(zustandsformel.substring(0, i),'〈','〉',i-1);
-	                if (matchingBracketIndex != -1) {
-	                    // Extrahiere den Inhalt zwischen den Klammern
-	                    String zwischen_den_klammern = zustandsformel.substring(matchingBracketIndex + 1, i);
-	                    
-	                    // Teile den Inhalt durch Komma und erstelle ein HashSet mit Übergangsobjekten
-	                    String[] übergangsZeichen = zwischen_den_klammern.split(",");
-	                    HashSet<Übergang> übergänge = new HashSet<>();
-	                    for (String zeichen : übergangsZeichen) {
-	                        übergänge.add(new Übergang(zeichen));
-	                    }
+		        prevChar = currentChar; // Setze prevChar auf das aktuelle Zeichen für die nächste Iteration
+		        leftIndex--;
+		    }
 
-	                    // Erstelle ein neues `ein_übergang`-Objekt, das auf die vorherige Menge verweist
-	                    letzte_erfüllende_Menge = new ein_übergang(letzte_erfüllende_Menge, übergänge);
-
-	                    // Springe zum Anfang der Klammer `〈`
-	                    i = matchingBracketIndex;
-	                    continue;
-	                } 
-	            }
-	             // 2. Wenn der aktuelle Char eine schließende Klammer `]` ist
-	                if (currentChar == ']') {
-	                    // Finde die passende öffnende Klammer `[`
-	                    int matchingBracketIndex = findMatchingOpenBracket(zustandsformel.substring(0, i), '[', ']',i-1);
-	                    if (matchingBracketIndex != -1) {
-	                        // Extrahiere den Inhalt zwischen den Klammern
-	                        String zwischen_den_klammern = zustandsformel.substring(matchingBracketIndex + 1, i);
-	                        
-	                        // Teile den Inhalt durch Komma und erstelle ein HashSet mit Übergangsobjekten
-	                        String[] übergangsZeichen = zwischen_den_klammern.split(",");
-	                        HashSet<Übergang> übergänge = new HashSet<>();
-	                        for (String zeichen : übergangsZeichen) {
-	                            übergänge.add(new Übergang(zeichen));
-	                        }
-
-	                        // Erstelle ein neues `alle_übergänge`-Objekt, das auf die vorherige Menge verweist
-	                        letzte_erfüllende_Menge = new alle_übergänge(übergänge,letzte_erfüllende_Menge);
-
-	                        // Springe zum Anfang der Klammer `[`
-	                        i = matchingBracketIndex;
-	                        continue;
-	                    }
-	                }
-	             // 3. Wenn der aktuelle Char eine Negation `¬` ist
-	                if (currentChar == '¬') {
-	                    // Erstelle ein neues `Negation`-Objekt, das auf die vorherige Menge verweist
-	                    letzte_erfüllende_Menge = new Negation(letzte_erfüllende_Menge);
-	                    
-	                    // Springe weiter vor die Negation
-	                    continue;
-	                }
-	             // 4. Wenn der aktuelle Char ein `○` ist
-	                if (currentChar == '○') {
-	                    // Prüfe, ob der nächste Char `∃` ist
-	                    if (i > 0 && zustandsformel.charAt(i - 1) == '∃') {
-	                        // Erstelle ein neues `in_einem_nächsten_zustand_gilt`-Objekt, das auf die vorherige Menge verweist
-	                        letzte_erfüllende_Menge = new in_einem_nächsten_zustand_gilt(letzte_erfüllende_Menge);
-
-	                        // Springe vor das Zeichen `∃`
-	                        i--;
-	                        continue;
-	                    }
-	                }
-	             // 5. Wenn der aktuelle Char ein `□` ist
-	                if (currentChar == '□') {
-	                    // Prüfe, ob der nächste Char `□` ist
-	                    if (i > 0 && zustandsformel.charAt(i - 1) == '∃') {
-	                        // Erstelle ein neues `ein_pfad_auf_dem_immer_gilt`-Objekt, das auf die vorherige Menge verweist
-	                        letzte_erfüllende_Menge = new ein_pfad_auf_dem_immer_gilt(letzte_erfüllende_Menge);
-
-	                        // Springe vor das Zeichen ∃
-	                        i--;
-	                        continue;
-	                    }
-	                }
-	                
-	            }
-	        	//füge den Startpunkt zur Liste hinzu
-	        	startpunkte_erfüllende_mengen.set(j,letzte_erfüllende_Menge);
-	        }
-	    //Zusammenbauen der bis jetzt extrhaieren erfüllenden Mengen
-	    //1. Geklammerte Ausdrücke müssen zuerst verbunden werden
-	    //Idee: Klammer Tiefe bestimmen, Therme nach Kalmmertiefe sortieren, Therm mit der größten Tiefe mit dem näcshten Verknüpfen und neu berechenen
-	    boolean haelt = true;
-        
-        while (haelt && liste_zustandformeln.size()>1) {
-            haelt = false;
-            
-            // 1. Tiefe der Klammern bestimmen
-            List<Integer> klammernTiefe = new ArrayList<>();
-            for (int i = 0; i < liste_zustandformeln.size(); i++) {
-                String term = liste_zustandformeln.get(i);
-                int tiefe = berechneKlammerTiefe(term);
-                if(i>0) {
-                klammernTiefe.add(tiefe+klammernTiefe.get(i-1));
-                }else{klammernTiefe.add(tiefe);}
-            }
-            
-            // 2. Paare aus (Index, Term, Tiefe) erstellen
-            List<Triple<Integer, String, Integer>> termTiefePaare = new ArrayList<>();
-            for (int i = 0; i < liste_zustandformeln.size(); i++) {
-                termTiefePaare.add(new Triple<>(i, liste_zustandformeln.get(i), klammernTiefe.get(i)));
-            }
-	            
-            // 3. Terme nach Tiefe sortieren
-            termTiefePaare.sort(Comparator.comparingInt(triple -> (Integer) ((Triple<Integer, String, Integer>) triple).getThird()).reversed());
-	        
-            for (Triple<Integer, String, Integer> triple : termTiefePaare) {
-                System.out.println("Key: " + triple.getKey() + ", Value: " + triple.getValue() + ", Depth: " + triple.getThird());
-            }
-
-            
-	       //den Therm mit der größten Tiefe finden und Verknüpfen
-            int i = termTiefePaare.get(0).getKey();
-            
-	        // Verknüpfungszeichen an der aktuellen Position holen
-	        char verknüpfungsChar = ersteZeichenNachSplit.get(i+1);
-
-	        // Nimm die beiden Mengen an den Positionen `i` und `i+1`
-	        erfüllende_Mengen erste_menge = startpunkte_erfüllende_mengen.get(i);
-	        erfüllende_Mengen zweite_menge = startpunkte_erfüllende_mengen.get(i+1);
-	        
-
-	        // Kombiniere die beiden Mengen basierend auf dem Verknüpfungscharakter
-	        erfüllende_Mengen kombinierte_menge;
-	        
-	        if (verknüpfungsChar == 'U') {
-	            // Erstelle ein `psi_Until_gamma`-Objekt
-	            kombinierte_menge = new psi_Until_gamma(erste_menge, zweite_menge);
-	        } else if (verknüpfungsChar == '∧') {
-	            // Erstelle ein `And`-Objekt
-	            kombinierte_menge = new And(erste_menge, zweite_menge);
-	        }else {
-	            // Wenn kein passendes Verknüpfungszeichen vorhanden ist, überspringe die aktuelle Menge
-	            continue;
-	        }
-            //Kombiniere die Stringtherme
-	        
-	        String aktueller_term = liste_zustandformeln.get(i) + liste_zustandformeln.get(i+1);
-	        
-            //füge die kombiniertre Therme hinzu und entferne die alten
-	        startpunkte_erfüllende_mengen.set(i, kombinierte_menge);
-            startpunkte_erfüllende_mengen.remove(i + 1);
-            liste_zustandformeln.remove(i + 1);
-            liste_zustandformeln.set(i, aktueller_term);
-            //entferne das Verknüpfungszeichen
-            ersteZeichenNachSplit.remove(i+1);
-            
-            haelt = true;
-	            
-        }
-	    
-	    
-	    //2. Verknüpfe die Mengen mit Verknüpfungszeichen UND oder UNTIL mit einander von links nach rechts, 
-	    for(int i = 1; i< startpunkte_erfüllende_mengen.size();i++) {
-	        // Verknüpfungszeichen an der aktuellen Position holen
-	        char verknüpfungsChar = ersteZeichenNachSplit.get(i);
-
-	        // Nimm die beiden Mengen an den Positionen `i` und `i-1`
-	        erfüllende_Mengen erste_menge = startpunkte_erfüllende_mengen.get(i-1);
-	        erfüllende_Mengen zweite_menge = startpunkte_erfüllende_mengen.get(i);
-
-	        // Kombiniere die beiden Mengen basierend auf dem Verknüpfungscharakter
-	        erfüllende_Mengen kombinierte_menge;
-	        
-	        if (verknüpfungsChar == 'U') {
-	            // Erstelle ein `psi_Until_gamma`-Objekt
-	            kombinierte_menge = new psi_Until_gamma(erste_menge, zweite_menge);
-	        } else if (verknüpfungsChar == '∧') {
-	            // Erstelle ein `And`-Objekt
-	            kombinierte_menge = new And(erste_menge, zweite_menge);
-	        }else {
-	            // Wenn kein passendes Verknüpfungszeichen vorhanden ist, überspringe die aktuelle Menge
-	            continue;
-	        }
-
-	        // 1.4 Füge die kombinierte Menge an der Position `index` ein
-	        startpunkte_erfüllende_mengen.set(i-1, kombinierte_menge);
-
-	        // 1.5 Entferne die zweite Menge und das Verknüpfungszeichen
-	        startpunkte_erfüllende_mengen.remove(i);
-	        ersteZeichenNachSplit.remove(i);
-	        // Beachte: Da eine Verknüpfung durchgeführt wurde, bleibt `index` gleich, da die Liste kleiner wird
-	        i--;
-	    	}
-	    
-	    	//3.Baue die verbleidenden unverknüpften erfüllenden Mengen, also Mengen die auf Null zeigen von hinten nach vorne zusammen
-	    while(startpunkte_erfüllende_mengen.size() > 1) {//Solange es mehr erfüllende Mengen gibt als 1 
-	    	
-	        int letzteIndex = startpunkte_erfüllende_mengen.size() - 1;
-	        erfüllende_Mengen aktuelle_menge_aus_liste = startpunkte_erfüllende_mengen.get(letzteIndex);
-
-	        // Finde die tiefste nicht verknüpfte Menge (die auf null zeigt)
-	        erfüllende_Mengen tiefste_menge = findeTiefsteMengeMitNull(startpunkte_erfüllende_mengen.get(letzteIndex - 1));
-	        
-	        //Unterscheidung ob ein oder zwei erfüllenden Mengen in der Definition vorkommen
-	        if (tiefste_menge instanceof Ast) {
-	            Ast ast_menge = (Ast) tiefste_menge;
-	            ast_menge.setInnere_Menge(aktuelle_menge_aus_liste); // Setze die innere Menge
-	            startpunkte_erfüllende_mengen.remove(aktuelle_menge_aus_liste);
-	        } else if (tiefste_menge instanceof Verzweigung) {//Setzte die Rechte Menge
-	            Verzweigung verzweigung_menge = (Verzweigung) tiefste_menge;
-	            verzweigung_menge.setRechte_Seite(aktuelle_menge_aus_liste);
-	            startpunkte_erfüllende_mengen.remove(aktuelle_menge_aus_liste); 
-	        } else {
-	            throw new IllegalStateException("Verknüpfungsproblem bei der Schachtelung.");
-	        }
-	    }
-	        
-	        this.Start_der_rekursiven_Definition = startpunkte_erfüllende_mengen.get(0);
-	    }
+		    // Überprüfen, ob leftIndex < 0 geworden ist, und korrekt behandeln
+		    int startIndex = Math.max(leftIndex + 1, 0);
+		    this.formel_string_normal_form = this.formel_string_normal_form.substring(0, startIndex) + "links" + this.formel_string_normal_form.substring(startIndex);
+		}
 	 
-	// Hilfsmethode, um die tiefste Menge zu finden, die noch nicht vollständig verknüpft ist
-	 private erfüllende_Mengen findeTiefsteMengeMitNull(erfüllende_Mengen menge) {
-	     
-		 if (menge instanceof Verzweigung) {
-	         Verzweigung verzweigung_menge = (Verzweigung) menge;
-	         
-	         // Überprüfe, ob die rechte Seite noch nicht gesetzt ist
-	         if (verzweigung_menge.getRechte_Seite() == null) {
-	             return verzweigung_menge;
-	         } else {
-	             // Rekursiv weitersuchen in der rechten Seite
-	             return findeTiefsteMengeMitNull(verzweigung_menge.getRechte_Seite());
-	         }
-	     } else if (menge instanceof Ast) {
-	         Ast ast_menge = (Ast) menge;
+	 		//Hilfsmehthode für das ersetzten von ODER
+		private void markiereRechtenTeil(int index) {
+		    int rightIndex = index + 1;
+		    int klammerBalance = 0;
+		    char currentChar = 0;
 
-	         // Überprüfe, ob die innere Menge noch nicht gesetzt ist
-	         if (ast_menge.getInnere_Menge() == null) {
-	             return ast_menge;
-	         } else {
-	             // Rekursiv weitersuchen in der inneren Menge
-	             return findeTiefsteMengeMitNull(ast_menge.getInnere_Menge());
-	         }
-	     }
-	     
-	     // Wenn es kein Verzweigung oder Ast ist, einfach zurückgeben
-	     return menge;
-	 }	 
-	 
+		    while (rightIndex < this.formel_string_normal_form.length()) {
+		        currentChar = this.formel_string_normal_form.charAt(rightIndex);
+		        if (currentChar == '(') {
+		            klammerBalance++;
+		        } else if (currentChar == ')') {
+		            klammerBalance--;
+		        }
+
+		        // Wenn die Klammerbalance wieder bei 0 ist, oder man auf ein U stößt das nicht in klammern steht haben wir den rechten Teil gefunden
+		        if (klammerBalance <0 ) {
+		            break;
+		        }
+
+		        rightIndex++;
+		    }
+		    // Falls keine schließende Klammer gefunden wurde ,markiere den Rest
+		    if (rightIndex == this.formel_string_normal_form.length()) {
+		        this.formel_string_normal_form = this.formel_string_normal_form.substring(0, rightIndex) + "rechts" + this.formel_string_normal_form.substring(rightIndex);
+		    } 
+		    else {
+		        this.formel_string_normal_form = this.formel_string_normal_form.substring(0, rightIndex + 1) + "rechts" + this.formel_string_normal_form.substring(rightIndex + 1);
+		    }
+		    }
 	 //Methode zur Ausgabe der Lösungsmenge der CTL-Formel
 	public  Set<Zustand> get_Lösungsmenge(Transitionssystem ts){
 		if (this.Start_der_rekursiven_Definition == null){
-			this.turn_string_into_recursive_ctl();
+			this.turn_to_normal_form();
+			this.Start_der_rekursiven_Definition = ZustandsformelUmwandler.parseZustandsformel(this.getFormel_string_normal_form());
+			//this.turn_string_into_recursive_ctl();
 		}
 		this.lösungsmenge = Start_der_rekursiven_Definition.berechne(ts);
 		return this.lösungsmenge;
@@ -557,18 +325,20 @@ public class Zustandsformel {
 	    final String NUR_TRANSITION_NACH_KLAMMER = "Nach einem \"〈\" oder \"[\" kann man nur Transitionen eingeben."+ "\n\n";
 	    final String NACH_TRANSITION = "Nach einer Transition kann entweder eine weitere Transition oder die passende schließende Klammer stehen."+ "\n\n";
 	    final String VOR_PFADOPERATOR = "Vor den Pfadoperatoren \"◇\", \"○\", \"□\" muss ein Quantor wie \"∃\" oder \"∀\" stehen, da man sonst eine Pfadformel erhält."+ "\n\n";
-	    final String UND_UND_ODER_NUR_NACH_ZUSTANDSFORMEL = "UND oder ODER können nur nach einer Zustandsformel eingelesen werden nicht nach einer Pfadformel";
-	    final String FORMELENDE_NUR_WENN_ZUSTANDSFORMEL = "Die Formeleingabe kann nur mit einer korrekten Zustandsformel beendet werden";
-	    final String FORMELENDE_NUR_WENN_KLAMMERN_OFFEN = "Die Formeleingabe kann nur mit beendet werden, wenn glecih viele öffnende und schließende Klammern vorhanden sind"+ "\n\n";
-	    final String UNTIL_NUR_WENN_ZUSTANDSFORMEL = "U kann nur nach einer korrekten Zustandsformel eingesetzt werden";
-	    String UNTIL_NUR_MIT_QUANTOR = "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n";
+	    final String UND_UND_ODER_NUR_NACH_ZUSTANDSFORMEL = "UND oder ODER können nur nach einer korrekten Zustandsformel eingelesen werden.";
+	    final String FORMELENDE_NUR_WENN_KLAMMERN_OFFEN = "Die Formeleingabe kann nur mit beendet werden, wenn gleich viele öffnende und schließende Klammern vorhanden sind"+ "\n\n";
+	    final String UNTIL_NUR_WENN_ZUSTANDSFORMEL = "U kann nur eingelesen werden, wenn nach dem Quantor eine korrekte Zustandsformel eingelesen wurde";
+	    final String UNTIL_NUR_MIT_QUANTOR = "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n";
+	    final String ZWISCHEN_KLAMMERN = "Zwischen öffnender und schließender Klammer muss eine gültige Zustandsformel stehen \n\n";
+	    final String EINS_NICHT_NACH_ZF = "Man kann keine 1 oder 0 (eine Zustandsformel) an eine Zustandsformel anhängen \n\n";
+	    
 	    
 	    // Ursprungszustand herstellen
 	    for (String symbol : this.all_symbols) {
 	        this.gruendeFuerNichteinlesbareSymbole.put(symbol, "");
 	    }
 
-	    // 1. Man kann nicht mit schließenden Klammern beginnen
+	    // Man kann nicht mit schließenden Klammern beginnen
 	    if (this.counter_normale_klammern <= 0) {
 	        this.gruendeFuerNichteinlesbareSymbole.put(")", KEINE_OEFFNENDE_KLAMMER);
 	    }
@@ -611,16 +381,29 @@ public class Zustandsformel {
 	        }
 	    }
 	    
-	    // Kein UND bzw. ODER nach nach Pfadformel
-	        if (!(this.ist_Zustandsformel(this.formel_string, 0))) {
-	            this.gruendeFuerNichteinlesbareSymbole.put("∧", UND_UND_ODER_NUR_NACH_ZUSTANDSFORMEL + " " +last_checked_Formular+ "\n\n");
-	            this.gruendeFuerNichteinlesbareSymbole.put("∨", UND_UND_ODER_NUR_NACH_ZUSTANDSFORMEL+ " "+ last_checked_Formular + "\n\n");
-	        }
+	  //Kein UND bzw. ODER nach unkorrekter Zustandsformel
+	    int openingBracketIndex = findMatchingOpenBracket(this.formel_string, '(', ')', this.formel_string.length() - 1);
+	    String substringToCheck = (openingBracketIndex != -1) 
+	        ? this.formel_string.substring(openingBracketIndex) 
+	        : this.formel_string;
+
+	    if (!(this.ist_Zustandsformel(substringToCheck, 0))) {
+	        this.gruendeFuerNichteinlesbareSymbole.put("∧", UND_UND_ODER_NUR_NACH_ZUSTANDSFORMEL + " bitte prüfe: " + substringToCheck + "\n\n");
+	        this.gruendeFuerNichteinlesbareSymbole.put("∨", UND_UND_ODER_NUR_NACH_ZUSTANDSFORMEL + " bitte prüfe: "  + substringToCheck + "\n\n");
+	    }
 
 	    // Transitionen müssen nach einem "〈" oder "[" stehen
 	    if (this.counter_eckige_klammern == 0 && this.counter_spitze_klammern == 0) {
 	        this.gruendeFuerNichteinlesbareSymbole.put("Transition eingeben", TRANSITION_NUR_ZWISCHEN_KLAMMERN);
 	    }
+	    
+	    //keine 1 oder 0 nach einer ZF
+	    if (this.ist_Zustandsformel(this.formel_string, 0)) {
+	        this.gruendeFuerNichteinlesbareSymbole.put("1", EINS_NICHT_NACH_ZF);
+	        this.gruendeFuerNichteinlesbareSymbole.put("0", EINS_NICHT_NACH_ZF);
+	    }
+	    
+
 
 	    // Nach einem "〈" oder "[" kann man nur Transitionen eingeben
 	    if (!this.formel_string.isEmpty()) {
@@ -658,20 +441,53 @@ public class Zustandsformel {
 	    
 	    // Man kann U nur einlesen wenn schon ein Quantor eingelsen wurde sonst immer Pfadfromel
       if (!this.formel_string.contains("∃") && !this.formel_string.contains("∀")) {
-          this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n");
+          this.gruendeFuerNichteinlesbareSymbole.put("U", UNTIL_NUR_MIT_QUANTOR);
        } else {
-          int indexEoA = Math.max(this.formel_string.indexOf("∃"), this.formel_string.indexOf("∀"));
-          System.out.println("EoA at: " + indexEoA);
-          if (indexEoA != -1) {
-             String zustandsformelTeil = this.formel_string.substring(indexEoA + 1).trim();
-             if (!this.ist_Zustandsformel(zustandsformelTeil, 0)) {
-                this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur nach einer korrekten Zustandsformel eingelesen werden\n\n " + this.last_checked_Formular + "\n\n");
-             }
-          } else {
-             this.gruendeFuerNichteinlesbareSymbole.put("U", "U kann nur eingelesen, wenn vor der Zustandsformel ein Quantor eingelesen wurde, da man sonst eine Pfadformel und keine Zustandsformel erhalten würde\n\n");
+    	    int indexEoA = findeLetztesFreiesEoA(this.formel_string);
+    	    if (indexEoA != -1) {
+    	        String zustandsformelTeil = this.formel_string.substring(indexEoA + 1).trim();
+    	        if (!this.ist_Zustandsformel(zustandsformelTeil, 0)) {
+    	            this.gruendeFuerNichteinlesbareSymbole.put("U", UNTIL_NUR_WENN_ZUSTANDSFORMEL + this.last_checked_Formular + "\n\n");
+    	        }
           }
        }
       
+
+      if (counter_normale_klammern>0) { // Es gibt mindestens eine '('
+    	// Initialisierung des Stacks
+    	  Stack<Integer> klammerStack = new Stack<>();
+
+	    	// Durchlaufe den String
+	    	for (int i = 0; i < formel_string.length(); i++) {
+	    	    char c = formel_string.charAt(i);
+	
+	    	    if (c == '(') {
+	    	        // Wenn eine öffnende Klammer gefunden wird, speichere den Index im Stack
+	    	        klammerStack.add(i);
+	    	    } else if (c == ')') {
+	    	        // Wenn eine schließende Klammer gefunden wird, entferne den letzten offenen Klammer-Index
+	    	        if (!klammerStack.isEmpty()) {
+	    	        	//entferne von Stack
+	    	            klammerStack.remove(klammerStack.size() - 1);	
+
+	    	            
+	    	        }
+	    	    }
+	    	}
+	    	if (!klammerStack.isEmpty()) {
+	    	    // Letzten Index aus dem Stack holen
+	    	    int letzteOffeneKlammerIndex = klammerStack.peek(); // oder pop() wenn es entfernt werden soll
+	    	    
+	    	    // Substring ab dem letzten Index + 1
+	    	    String nachKlammer = formel_string.substring(letzteOffeneKlammerIndex + 1).trim();
+	            // Prüfe, ob der Substring eine gültige Zustandsformel ist
+	            if (!this.ist_Zustandsformel(nachKlammer, 0)) {
+	                // Falls der Substring keine gültige Zustandsformel ist, füge den Fehlergrund in das Dictionary ein
+	                this.gruendeFuerNichteinlesbareSymbole.put(")", ZWISCHEN_KLAMMERN + "überprüfe den Therm: " + nachKlammer);
+	            }
+	    	}
+	   }
+
       //Formelende nur wenn gültige CTL-Formel
        if (!this.ist_Zustandsformel(this.formel_string, 0)) {
           this.gruendeFuerNichteinlesbareSymbole.put("Formelende", "Die Formeleingabe kann nur mit einer korrekten Zustandsformel beendet werden " + this.fehlerbeschreibung + "\n\n");
@@ -679,12 +495,36 @@ public class Zustandsformel {
        }
        //Formelende nur wenn alle Klammern geschlossen sind
        if (this.counter_normale_klammern != 0) {
-          this.gruendeFuerNichteinlesbareSymbole.put("Formelende", "Die Formeleingabe kann nur mit beendet werden, wenn glecih viele öffnende und schließende Klammern vorhanden sind\n\n");
+          this.gruendeFuerNichteinlesbareSymbole.put("Formelende", FORMELENDE_NUR_WENN_KLAMMERN_OFFEN);
        }
 
        return this.gruendeFuerNichteinlesbareSymbole;
     }
 	
+	//Hilfmethode für verschaltelte E und A 
+	private int findeLetztesFreiesEoA(String formel) {
+	    Stack<Character> stack = new Stack<>();
+	    for (int i = formel.length() - 1; i >= 0; i--) {
+	        char c = formel.charAt(i);
+
+	        if (c == 'U') {
+	            // U-Symbol gefunden, hinzufügen, um spätere E/A zu ignorieren
+	            stack.push('U');
+	        } else if (c == 'E' || c == 'A') {
+	            // Ein E oder A gefunden
+	            if (!stack.isEmpty()) {
+	                // Es wird ignoriert, da ein "U" aktiv ist
+	                stack.pop();
+	            }
+	            else return i;
+	        } else if (c == '◇' || c == '○' || c == '□') {
+	            // Diese Symbole gehören zu einem vorherigen E/A, nächstes Zeichen überspringen
+	            i--; // Überspringe den vorherigen Charakter (E/A)
+	        }
+	    }
+	    // Kein freies E oder A gefunden
+	    return -1;
+	}
 	//Methode die die Einzenlen Chars einliest und an die CTL-Formel anfügt
 	 public void ein_char_einlesen(String eingelesenesSymbol) {
 
@@ -740,14 +580,16 @@ public class Zustandsformel {
 		    // Wenn das Symbol in all_symbols ist und formel_string nicht mit Komma endet, normale Eingabe eines Symbols
 		    else {
 		    	 this.formel_string += eingelesenesSymbol;
-		    	 if(eingelesenesSymbol == "Formelende") {
-		    		 this.turn_to_normal_form();
-		    	 }
 			}
 	 }
 	 	
 	 //Methode die prüft ob übergebner String eine Zustandsformel ist
 	 public boolean ist_Zustandsformel(String zu_prüfende_Formel, int tiefe) {
+		 
+		 if(tiefe == 0) {
+			 
+			 String test = "";
+		 }
 		 
 		 //Schaltet Debugging Ausgaben ein oder aus
 		 boolean debug = false;
@@ -757,12 +599,32 @@ public class Zustandsformel {
 		    // Entferne führende und nachfolgende Leerzeichen
 		    zu_prüfende_Formel = zu_prüfende_Formel.trim();
 
-		    // 0. Basisfall: Wenn die Formel "1" oder "0" ist, gib true zurück
-		    if (zu_prüfende_Formel.equals("1") || zu_prüfende_Formel.equals("0")) {
-		        if (debug) printAufruf(tiefe, "Erfolgreich: Basisfall erreicht mit " + zu_prüfende_Formel);
-		        return true;
-		    }
+		    
+		    
+		    // Zuerst an Logischen Operatoren aufteilen und  seiten einzeln prüfen aber nur wenn gleichviele öffnende und schließende Klammern vorhanden sind
+				
+		    int andIndex = zu_prüfende_Formel.indexOf("∧");
+			int orIndex = zu_prüfende_Formel.indexOf("∨");
+		
+				
+			// Bestimme den linken und rechten Teil basierend auf dem gefundenen logischen Operator
+			if (andIndex != -1 || orIndex != -1) {
+			    String leftPart;
+			    String rightPart;
 
+			    if (andIndex != -1) {
+			        leftPart = zu_prüfende_Formel.substring(0, andIndex).trim();
+			        rightPart = zu_prüfende_Formel.substring(andIndex + 1).trim();
+			    } else { // orIndex != -1
+			        leftPart = zu_prüfende_Formel.substring(0, orIndex).trim();
+			        rightPart = zu_prüfende_Formel.substring(orIndex + 1).trim();
+			    }
+
+			    if (ZustandsformelUmwandler.checkBalancedParentheses(leftPart)) {
+			            return ist_Zustandsformel(leftPart, tiefe + 1) && ist_Zustandsformel(rightPart, tiefe + 1);
+			    }
+			}
+		    //###Dann einzelne Zustandsformel prüfen
 		    // 1. Wenn "∃" oder "∀" gelesen wird, muss das folgende eine Pfadformel sein
 		    if (zu_prüfende_Formel.startsWith("∃") || zu_prüfende_Formel.startsWith("∀")) {
 		        
@@ -773,7 +635,7 @@ public class Zustandsformel {
 		            return ist_Zustandsformel(rest.substring(1).trim(), tiefe + 1);
 		        }
 		        //Oder man findet ein U und prüft den linekn und rechten PArt ob es eine Zustandsformel ist
-		        int indexOfU = rest.indexOf("U");
+		        int indexOfU = ZustandsformelUmwandler.findMatchingU(rest,0);		        
 		        if (indexOfU != -1) {
 		            if (debug) printAufruf(tiefe, "Hinweis: 'U' gefunden nach Quantor.");
 		            String leftPart = rest.substring(0, indexOfU).trim();
@@ -785,7 +647,8 @@ public class Zustandsformel {
 		        	 addFehlerbeschreibung(zu_prüfende_Formel, "Fehler: Kein gültiges 'U' gefunden nach Quantor.");
 		            if (debug) printAufruf(tiefe, "Fehler: Kein gültiges 'U' gefunden.");
 		            return false;
-		        } else return true;
+		        }
+		        else return false;
 		    }
 
 		    // 2. Klammern prüfen: "[" oder "〈", wenn es eine passende schleißende Klammer gibt, prüfe was nach der Klammer kommt
@@ -831,27 +694,45 @@ public class Zustandsformel {
 		        return ist_Zustandsformel(zu_prüfende_Formel.substring(1, closingIndex).trim(), tiefe + 1);
 		    }
 
-		    // 5. Logische Operatoren prüfen: "∧" und "∨", linke und rechte Seite prüfen dabei auf Klammern achten
-		    int andIndex = zu_prüfende_Formel.indexOf("∧");
-		    int orIndex = zu_prüfende_Formel.indexOf("∨");
 
-		    int offset = 0;
-		    if (!zu_prüfende_Formel.isEmpty() && zu_prüfende_Formel.charAt(0) == '(') {
-		        offset = 1;
-		    }
-
-		    if (andIndex != -1) {
-		        String leftPart = zu_prüfende_Formel.substring(0 + offset, andIndex).trim();
-		        String rightPart = zu_prüfende_Formel.substring(andIndex + 1).trim();
-		        return ist_Zustandsformel(leftPart, tiefe + 1) && ist_Zustandsformel(rightPart, tiefe + 1);
-		    }
-
-		    if (orIndex != -1) {
-		        String leftPart = zu_prüfende_Formel.substring(0, orIndex).trim();
-		        String rightPart = zu_prüfende_Formel.substring(orIndex + 1).trim();
-		        return ist_Zustandsformel(leftPart, tiefe + 1) && ist_Zustandsformel(rightPart, tiefe + 1);
+		 // ##############Basisfälle: Wenn die Formel "1" oder "0" ist, gib true zurück##########
+		    if (zu_prüfende_Formel.equals("1") || zu_prüfende_Formel.equals("0")) {
+		        if (debug) printAufruf(tiefe, "Erfolgreich: Basisfall erreicht mit " + zu_prüfende_Formel);
+		        return true;
 		    }
 		    
+		    // Basifall wenn leer dann false
+		    if (zu_prüfende_Formel.isEmpty()) {
+		        if (debug) printAufruf(tiefe, "Eine leere Eingabe ist keine Zustandsformel");
+		        return false;
+		    }
+		    
+		 // Basifall wenn in Zustandsformel "∃" oder "∀", wenn kein U in formel oder der char nach "∃" oder "∀" nicht "◇", "○", "□",-> false 
+		    if (zu_prüfende_Formel.contains("∃") || zu_prüfende_Formel.contains("∀")) {
+		        boolean gueltigerCharNachQuantor = false;
+		        boolean enthaeltU = zu_prüfende_Formel.contains("U");
+
+		        // Prüfen, ob ein gültiger Charakter nach "∃" oder "∀" vorhanden ist
+		        int index = Math.max(zu_prüfende_Formel.indexOf("∃"), zu_prüfende_Formel.indexOf("∀"));
+		        if (index != -1 && index + 1 < zu_prüfende_Formel.length()) {
+		            char nextChar = zu_prüfende_Formel.charAt(index + 1);
+		            gueltigerCharNachQuantor = (nextChar == '◇' || nextChar == '○' || nextChar == '□');
+		        }
+
+		        // Wenn weder ein gültiger Charakter nach "∃"/"∀" noch ein "U" vorhanden ist, false zurückgeben
+		        if (!gueltigerCharNachQuantor && !enthaeltU) {
+		            return false;
+		        }
+		    }
+		    
+		    // Basisfall Wenn String kein 1 oder 0 enthält, kann es keine Zustandsformel sein
+		    if (!(zu_prüfende_Formel.contains("1") || zu_prüfende_Formel.contains("0"))) {
+		        if (debug) printAufruf(tiefe, "Dieser Abschnitt enthält weder 1 noch 0 kann also keine Zustandsformel sein: " + zu_prüfende_Formel);
+		        return false;
+		    }
+
+		    
+		    //Wenn nichts gefunden wurde Fehler
 		    addFehlerbeschreibung(zu_prüfende_Formel, "Fehler: Keine passende logische Struktur.");
 		    if (debug) printAufruf(tiefe, "Fehler: Keine passende logische Struktur.");
 		    return false;
@@ -892,9 +773,10 @@ public class Zustandsformel {
 
 		// Hilfsfunktion, um den aktuellen Aufruf zu protokollieren
 		private void printAufruf(int tiefe, String message) {
+			
 		    // Fügt Leerzeichen entsprechend der Tiefe hinzu, um die Rekursionstiefe zu visualisieren
 		    String prefix = "  ".repeat(tiefe);
-		    System.out.println(prefix + message);
+		    
 		    if(!(message.contains("Fehler"))) {
 		    	last_checked_Formular = message;
 		    }
@@ -918,7 +800,7 @@ public class Zustandsformel {
 	}
 	
     // Öffentliche Methode zum Entfernen von Zeichen am Ende des Strings
-	public void entferneLetztenChar() {
+	public void entferneLetztenChar(boolean is_red) {
 	    // Wenn der formel_string leer ist, gibt es nichts zu entfernen
 	    if (this.formel_string.isEmpty()) {
 	        return;
@@ -930,10 +812,8 @@ public class Zustandsformel {
 	        this.formel_string = this.formel_string.substring(0, this.formel_string.length() - formelende.length());
 	    }else {
 	    
-	
-		    // Das letzte Zeichen im formel_string ermitteln
-		    String letztesZeichen = this.formel_string.substring(this.formel_string.length() - 1);
-	
+	    	String letztesZeichen= this.formel_string.substring(this.formel_string.length() - 1);
+
 		    // Falls das letzte Zeichen eine öffnende oder schließende Klammer ist, müssen die Zähler angepasst werden
 		    if (letztesZeichen.equals("(")) {
 		        this.counter_normale_klammern--;
@@ -950,10 +830,15 @@ public class Zustandsformel {
 		    }
 	
 		 // Wenn das letzte Zeichen eine geschlossene Transition ist
-		    if (letztesZeichen.equals("〉")) { // <Fall {a,b}> zu <{a,b,
-		        // Entferne die letzten zwei Zeichen und füge "," an
-		        this.formel_string = this.formel_string.substring(0, this.formel_string.length() - 2);
-		        this.formel_string = this.formel_string + ",";
+		    if ((letztesZeichen.equals("〉")||letztesZeichen.equals("]")) && !is_red) {
+		        char vorletztesZeichen = this.formel_string.charAt(this.formel_string.length() - 2);
+		        if (vorletztesZeichen == '}') {// Fall <{a}> soll zu <{a, werden und  <Fall <{a,b}> zu <{a,b, 
+		        	this.formel_string = this.formel_string.substring(0, this.formel_string.length() - 2);
+		        	this.formel_string = this.formel_string + ",";
+			    } else {//Wenn die schließenden Klammern illegal eingelesen wurden
+			    	// Entferne nur das letzte Zeichen, füge nichts hinzu
+		            this.formel_string = this.formel_string.substring(0, this.formel_string.length() - 1);
+			    }
 		    } else if (letztesZeichen.equals(",")) { // Falls innerhalb der Eingabe
 		        // Prüfe das drittletzte Zeichen
 		        char drittLetztesZeichen = this.formel_string.charAt(this.formel_string.length() - 3);
@@ -966,12 +851,23 @@ public class Zustandsformel {
 		            this.formel_string = this.formel_string.substring(0, this.formel_string.length() - 2);
 		        }
 		    //Falls nicht in einer Transition einfach nur letztes Zeichen entfernen
-		    } else {this.formel_string = this.formel_string.substring(0, this.formel_string.length() - 1);}
+		    } else {
+		    	this.formel_string = this.formel_string.substring(0, this.formel_string.length() - 1);
+		    	// Prüfen, ob der formel_string mit '}' endet  
+		    	if (this.formel_string.endsWith("}")) {
+		    	        // Letztes Zeichen entfernen
+		    	        this.formel_string = this.formel_string.substring(0, this.formel_string.length() - 1);
+		    	        // "," hinzufügen
+		    	        this.formel_string += ",";
+		    	    }
+		    }
 	    }
 	}
 	
 	public void print_erfüllende_zustände(Transitionssystem ts) {
-		turn_string_into_recursive_ctl();
+		//turn_string_into_recursive_ctl();
+		this.turn_to_normal_form();
+		this.Start_der_rekursiven_Definition = ZustandsformelUmwandler.parseZustandsformel(this.getFormel_string_normal_form());
 		Set<Zustand> lösungsmenge = this.Start_der_rekursiven_Definition.berechne(ts);
 		System.out.println("###############Lösungsmenge##################");
 		for(Zustand lösung:lösungsmenge) {
@@ -979,9 +875,11 @@ public class Zustandsformel {
 		}
 	}
 
-	public erfüllende_Mengen getStart_der_rekursiven_Definition() {
+	public ErfüllendeMenge getStart_der_rekursiven_Definition() {
 		if (this.Start_der_rekursiven_Definition == null){
-			this.turn_string_into_recursive_ctl();
+			//this.turn_string_into_recursive_ctl();
+			this.turn_to_normal_form();
+			this.Start_der_rekursiven_Definition = ZustandsformelUmwandler.parseZustandsformel(this.getFormel_string_normal_form());
 		}	
 		return Start_der_rekursiven_Definition;
 	}
@@ -1043,6 +941,11 @@ public class Zustandsformel {
         public V getValue() { return value; }
         public T getThird() { return third; }
     }
+
+	public void turn_string_into_recursive_ctl_rekursiv() {
+		this.turn_to_normal_form();
+		this.Start_der_rekursiven_Definition = ZustandsformelUmwandler.parseZustandsformel(this.getFormel_string_normal_form());
+	}
 }
 
 

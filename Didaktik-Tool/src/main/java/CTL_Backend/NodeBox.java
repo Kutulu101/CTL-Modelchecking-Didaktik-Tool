@@ -18,7 +18,7 @@ public class NodeBox {
     protected StackPane stackpane;
     
     //erfüllende Menge die von NodeBox repräsentiert wird
-    protected erfüllende_Mengen erfuellendeMenge;
+    protected ErfüllendeMenge erfuellendeMenge;
     
     //Sichtbarkeitsverwaltung der Lösungsmenge
     private boolean isShowingSolutionSet;
@@ -36,7 +36,7 @@ public class NodeBox {
     protected double originalXLayout;
     protected double originalYLayout;
 
-    public NodeBox(String nodeName, erfüllende_Mengen erfuellendeMenge, Transitionssystem ts, NodeBox parent) {
+    public NodeBox(String nodeName, ErfüllendeMenge erfuellendeMenge, Transitionssystem ts, NodeBox parent) {
         
     	this.erfuellendeMenge = erfuellendeMenge;
         this.nodename = nodeName;
@@ -129,7 +129,7 @@ public class NodeBox {
         this.stackpane.setLayoutY(this.originalYLayout);
     }
 
-    public erfüllende_Mengen getErfuellendeMenge() {
+    public ErfüllendeMenge getErfuellendeMenge() {
         return this.erfuellendeMenge;
     }
 

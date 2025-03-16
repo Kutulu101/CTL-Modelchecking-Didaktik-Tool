@@ -207,10 +207,38 @@ public class Circle_Group_Builder {
 	        }
 	    }
 	}
-   
+	
+   	// Diese Methode färbt alle Kreise (Circle) in einer Szene rekursiv gelb.
+	public void colorAllCirclesYellow(Node node) {
+	    // Überprüfen, ob der aktuelle Knoten ein Kreis ist
+	    if (node instanceof Circle) {
+	        // Wenn ja, setze die Füllfarbe des Kreises auf Blau
+	        ((Circle) node).setFill(Color.YELLOW);
+	    } else if (node instanceof Pane) {
+	        // Wenn der aktuelle Knoten ein Pane ist, durchlaufe alle Kinder
+	        for (Node child : ((Pane) node).getChildren()) {
+	            // Rekursiver Aufruf für jedes Kind
+	            this.colorAllCirclesYellow(child);
+	        }
+	    } else if (node instanceof Group) {
+	        // Wenn der aktuelle Knoten eine Gruppe ist, durchlaufe alle Kinder
+	        for (Node child : ((Group) node).getChildren()) {
+	            // Rekursiver Aufruf für jedes Kind
+	            this.colorAllCirclesYellow(child);
+	        }
+	    }
+	}
+	
+	public void bereite_berechnung_vor(Parent parent) {
+		this.schliesseAlleEingabefelder(parent);
+		this.blende_unvernetze_kreise_aus();
+	}
+	
+
+
 	// Methode, die alle Eingabefelder (TextField) schließt, um zu verhindern, 
 	// dass Berechnungen während der Eingabe gestartet werden können
-	public void schliesseAlleEingabefelder(Parent parent) {
+	private void schliesseAlleEingabefelder(Parent parent) {
 	    // Schleife durch alle unveränderbaren Kinder des übergebenen Elternknotens
 	    for (Object node : parent.getChildrenUnmodifiable()) {
 	        // Überprüfen, ob das aktuelle Kind ein TextField ist
@@ -227,6 +255,28 @@ public class Circle_Group_Builder {
 	        else if (node instanceof Parent) {
 	            this.schliesseAlleEingabefelder((Parent) node);
 	        }
+	    }
+	}
+	
+	private void blende_unvernetze_kreise_aus() {
+		
+	    for (Group circleGroup : list_of_circle_groups) {
+	        // Der Kreis ist immer das erste Kind in der Gruppe
+	        if (circleGroup.getChildren().isEmpty() || !(circleGroup.getChildren().get(0) instanceof Circle)) {
+	            continue;
+	        }
+	        Circle circle = (Circle) circleGroup.getChildren().get(0);
+	        
+	        boolean is_in_relation = false;
+	        for (Relation relation : this.arrow_builder.getList_of_relations()) {
+	            if (relation.getFirstCircle().equals(circle) || relation.getSecondCircle().equals(circle)) {
+	                is_in_relation = true;
+	                break;
+	            }
+	        }
+	        
+	        // Falls kein Bezug existiert, die Sichtbarkeit auf false setzen
+	        circleGroup.setVisible(is_in_relation);
 	    }
 	}
 

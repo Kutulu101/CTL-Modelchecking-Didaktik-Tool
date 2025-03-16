@@ -15,24 +15,30 @@ class NodeBox_with_detail_solution extends NodeBox {
     private Button toggle_button_detail;
     
     //Konstruktor ruft erst super auf und erzeugt dann die Pane mit dem extra Button
-    public NodeBox_with_detail_solution(erfüllende_Mengen data, String nodename, Transitionssystem ts, NodeBox parent) {
+    public NodeBox_with_detail_solution(ErfüllendeMenge data, String nodename, Transitionssystem ts, NodeBox parent) {
         super(nodename, data, ts, parent);
         this.detail_toggle_pane_complete = this.createToggleDetailSolution_Pane((detail_lösung) this.erfuellendeMenge);
     }
 
     private Pane createToggleDetailSolution_Pane(detail_lösung menge) {
     	
+        // Bestimme die maximale Zeilenlänge
+        double maxWidth = getMaxTextWidth(menge.get_schritt_weise_lösung());
+     
+        
     	//Erzeuge und formatiere neuen Button
         Button toggleButton = new Button("+");
         toggleButton.setStyle("-fx-background-color: #ffffff; -fx-border-radius: 10px; -fx-background-radius: 10px; -fx-font-size: 7px; -fx-text-fill: black; -fx-min-width: 5px; -fx-min-height: 5px; -fx-border-color: black; -fx-border-width: 1px;");
         this.toggle_button_detail = toggleButton;
         Label textBox = new Label(menge.get_schritt_weise_lösung());
+        textBox.setPrefWidth(maxWidth);
         textBox.setWrapText(true);
         textBox.setStyle("-fx-background-color: #ffffff; -fx-padding: 10px; -fx-font-size: 10px;");
         
+   
         //Erzeuge und Formatiere ScrollPane die die Itterationsschritte enthält
         ScrollPane scrollPane = new ScrollPane(textBox);
-        scrollPane.setPrefWidth(350.0);
+        scrollPane.setPrefWidth(maxWidth + 20); // Padding hinzufügen
         scrollPane.setFitToWidth(true);
         scrollPane.setVisible(false);
         
@@ -63,6 +69,7 @@ class NodeBox_with_detail_solution extends NodeBox {
         container.setPrefWidth(10.0);
         container.getChildren().add(this.stackpane);
         container.getChildren().addAll(scrollPane, toggleButton);
+        container.toFront();
         
         //Listner auf StackPane setzten, damit sich die Pane und die Zusatzelemente selbstständig mit StackPane bewegen
         this.stackpane.translateXProperty().addListener((observable, oldValue, newValue) -> {
@@ -78,9 +85,23 @@ class NodeBox_with_detail_solution extends NodeBox {
         return container;
     }
     
+    //MEthode um Zeilenbreite zu bestimmen
+    private double getMaxTextWidth(String text) {
+        String[] lines = text.split("\\n");
+        double maxWidth = 0;
+        for (String line : lines) {
+            double lineWidth = line.length() * 7; // Annahme: ca. 7px pro Zeichen
+            if (lineWidth > maxWidth) {
+                maxWidth = lineWidth;
+            }
+        }
+        return maxWidth;
+    }
+    
     //Methoden zum ändern der Sichtbarkeit
     public void make_detail_toggle_button_visible() {
         this.toggle_button_detail.setVisible(true);
+        this.detail_toggle_pane_complete.toFront();
     }
 
     public void make_detail_toggle_button_unvisible() {
